@@ -1,5 +1,10 @@
 # MyoKTROS
 
+[![Build Status](https://github.com/iomz/myoktros/workflows/build/badge.svg)](https://github.com/iomz/myoktros/actions?query=workflow%3Abuild)
+[![Python Versions](https://img.shields.io/pypi/pyversions/myoktros.svg)](https://pypi.python.org/pypi/myoktros)
+[![PyPI Version](https://img.shields.io/pypi/v/myoktros.svg)](https://pypi.python.org/pypi/myoktros)
+[![License](https://img.shields.io/pypi/l/myoktros.svg)](https://pypi.python.org/pypi/myoktros)
+
 Myo EMG-based KT system for ROS.
 
 ## Installation
