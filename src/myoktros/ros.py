@@ -1,12 +1,5 @@
-#!/usr/bin/env python3
-import aenum
-import logging
-
-
-class Mode(aenum.Enum):
-    __slot__ = "name"
-    STANDARD_MODE = 0
-    TEACH_MODE = 1
+# -*- coding: utf-8 -*-
+from .mode import Mode
 
 
 # Global Variables to keep track of the gripper state,the robot mode, delete position and finish teaching
@@ -152,49 +145,3 @@ class Gripper(RosObject):
 
     def toggle(self):
         pass
-
-
-class Gesture(aenum.Enum):
-    zero = 0
-    one = 1
-    two = 2
-    three = 3
-    four = 4
-
-
-if __name__ == "__main__":
-    xarm7 = XArm7()
-    pred = Gesture.zero
-
-    def update():
-        return None
-
-    while True:
-        # Standard Mode
-        if pred == Gesture.zero:
-            xarm7.set_mode(Mode.STANDARD_MODE)
-
-        # Teach Mode
-        elif pred == Gesture.one:
-            xarm7.set_mode(Mode.TEACH_MODE)
-
-        # Confirm Position
-        elif pred == Gesture.two:
-            xarm7.record()
-
-        # Toggle Gripper
-        elif pred == Gesture.three:
-            xarm7.gripper.toggle()
-
-        # Delete the last confirmed position
-        elif pred == Gesture.four:
-            xarm7.undo()
-
-        # Finish Teaching
-        elif pred is None:
-            break
-
-        pred = update()
-
-    logging.info("executing the recorded sequence")
-    xarm7.execute()
