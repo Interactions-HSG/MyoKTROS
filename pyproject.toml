@@ -1,9 +1,9 @@
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.17.1", "hatch-vcs>=0.3.0"]
+build-backend = "hatchling.build"
 
 [project]
-name = "MyoKTROS"
+name = "myoktros"
 authors = [
   { name="Felix Wohlgemuth" },
   { name="Iori Mizutani", email="iori.mizutani@gmail.com" },
@@ -11,7 +11,7 @@ authors = [
 maintainers = [
   { name="Iori Mizutani", email="iori.mizutani@gmail.com" },
 ]
-description = "Myo EMG-based KT system with ROS"
+description = "Myo EMG-based KT system for ROS"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -37,6 +37,20 @@ myoktros = "myoktros:entrypoint"
 [project.urls]
 "Homepage" = "https://github.com/Interactions-HSG/MyoKTROS"
 "Bug Tracker" = "https://github.com/Interactions-HSG/MyoKTROS/issues"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.version.raw-options]
+version_scheme = "python-simplified-semver"
+local_scheme = "no-local-version"
+parentdir_prefix_version = "v"
+git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "v*"]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "/.github",
+]
 
 [tool.black]
 line-length = 120

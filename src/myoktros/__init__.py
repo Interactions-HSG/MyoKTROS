@@ -11,7 +11,7 @@ from .ros import XArm7
 async def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="Myo EMG-based KT system with ROS",
+        description="Myo EMG-based KT system for ROS",
     )
     parser.add_argument(
         "-a",
