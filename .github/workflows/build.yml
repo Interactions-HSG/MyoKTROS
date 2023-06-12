@@ -1,8 +1,9 @@
 name: build
 on:
   pull_request:
-  release:
-    types: [published]
+  push:
+    branches:
+      - main
 jobs:
   build-wheel:
     runs-on: ubuntu-latest
