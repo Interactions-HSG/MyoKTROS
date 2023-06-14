@@ -26,3 +26,19 @@ pip install dist/myoktros-*.whl
 ```console
 myoktros -h
 ```
+
+### Legacy Mode
+
+Use with the legacy k-NN classifier with sampling normalization.
+
+First generate the classifier
+
+```bash
+poetry run scripts/train_legacy_classifier.py
+```
+
+then run with `--mode legacy`
+
+```bash
+poetry run myoktros --mode legacy
+```
