@@ -18,7 +18,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.10",
     "Topic :: Scientific/Engineering :: Human Machine Interfaces",
 ]
 dynamic = ["version"]
@@ -30,7 +30,7 @@ dynamic = ["version"]
 [tool.black]
 line-length = 120
 skip-string-normalization = true
-target-version = ["py311"]
+target-version = ["py310"]
 
 [tool.ruff]
 # Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
@@ -68,7 +68,7 @@ line-length = 120
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 # Assume Python 3.10.
-target-version = "py311"
+target-version = "py310"
 
 
 [tool.ruff.mccabe]
@@ -101,17 +101,18 @@ license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
-dl-myo = "^0.1.6"
+python = ">=3.9,<3.11"
+dl-myo = ">=0.2.0"
 joblib = "^1.2.0"
 numpy = "^1.24.3"
+pandas = "^2.0.2"
 scikit-learn = "^1.2.2"
+tensorflow = ">=2.12.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
 pytest = "^7.3.2"
 pytest-cov = "^4.1.0"
-pandas = "^2.0.2"
 
 [tool.poetry.scripts]
 myoktros = "myoktros:entrypoint"

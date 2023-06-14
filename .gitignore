@@ -131,3 +131,4 @@ dmypy.json
 # Msc
 .DS_Store
 *.pkl
+*.csv
