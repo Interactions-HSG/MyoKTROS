@@ -5,6 +5,7 @@ from pathlib import Path
 
 import aenum
 import joblib
+import myo
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,15 @@ class Gesture(aenum.Enum):
     STRETCH_FINGER = 2
     BEND_WRIST = 3  # extension
     FLEXION = 4
+
+
+class GestureClassifierKeras:
+    def __init__(self, n_periods: int = 3, n_samples: int = 3):
+        p = Path(__file__).parent.parent.parent / "assets" / "keras_classifier.pkl"
+        self.model = joblib.load(p.absolute())
+
+    def predict(self, data: myo.FVData):
+        return Gesture(self.model.predict(data))
 
 
 class GestureClassifierLegacy:

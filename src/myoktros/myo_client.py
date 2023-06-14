@@ -28,6 +28,9 @@ class MyoClient:
         if self.m is None:
             return None
         self.c = BleakClient(self.m.device)
+        if self.c is None:
+            return None
+
         await self.c.connect()
         logger.info(f"connected to {self.m.device.name}")
 
