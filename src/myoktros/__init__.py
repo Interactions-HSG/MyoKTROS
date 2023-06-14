@@ -3,9 +3,12 @@ import argparse
 import asyncio
 import logging
 
-from .gesture import Gesture
-from .mode import Mode
-from .ros import XArm7
+import myo
+
+# from .gesture import Gesture
+# from .kt_mode import KTMode
+# from .ros import XArm7
+from .myo_client import MyoClient
 
 
 async def main():
@@ -26,8 +29,11 @@ async def main():
         help="sets the log level to debug",
     )
     parser.add_argument(
-        "-p", "--port", help="the port for the ROS server", default=8765
+        "-m",
+        "--mac",
+        help="specify the Myo's mac address",
     )
+    parser.add_argument("-p", "--port", help="the port for the ROS server", default=8765)
 
     args = parser.parse_args()
 
@@ -36,9 +42,22 @@ async def main():
         level=log_level,
         format="%(asctime)-15s %(name)-8s %(levelname)s: %(message)s",
     )
-    logging.getLogger("myoktros").setLevel(level=log_level)
-    logging.info(f"connecting to {args.address}:{args.port}...")
+    logger = logging.getLogger(__name__)
 
+    logger.info("scanning for a Myo device...")
+    mc = await MyoClient.with_device(args.mac)
+
+    def on_emg_data(data: myo.FVData):
+        logger.info(f"emg: {data.fv}")
+
+    mc.on_emg_data = on_emg_data
+    await mc.setup()
+    await mc.start()
+    await asyncio.sleep(5)
+    await mc.stop()
+    await mc.sleep()
+
+    """
     xarm7 = XArm7()
     pred = Gesture.zero
 
@@ -75,6 +94,7 @@ async def main():
 
     logging.info("executing the recorded sequence")
     xarm7.execute()
+    """
 
 
 def entrypoint():
