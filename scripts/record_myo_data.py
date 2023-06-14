@@ -6,10 +6,10 @@ import logging
 import time
 from pathlib import Path, PurePath
 
-import myo
+from myo.types import EMGData, EMGMode, FVData
 
 from myoktros.gesture import Gesture
-from myoktros.myo_client import MyoClient
+from myoktros.myo_manager import MyoManager
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -18,15 +18,15 @@ logging.basicConfig(
 )
 
 
-def setup_output(g: Gesture, em: myo.EMGMode) -> PurePath:
+def setup_output(g: Gesture, em: EMGMode) -> PurePath:
     out_dir = Path(__file__).parent.parent / "assets"
     if not out_dir.exists():
         out_dir.mkdir()
     now = time.strftime("%Y%m%d%H%M%S")
     p = out_dir / f"{em.name}-{g.name}-{now}.csv"
     with open(p.absolute(), "w") as f:
-        if em == myo.EMGMode.SEND_FILT:
-            print("fv0,fv1,fv2,fv3,fv4,fv5,fv6,fv7,gesture", file=f)
+        if em == EMGMode.SEND_FILT:
+            print("fv0,fv1,fv2,fv3,fv4,fv5,fv6,fv7,mask,gesture", file=f)
         else:
             print("emg0,emg1,emg2,emg3,emg4,emg5,emg6,emg7,gesture", file=f)
 
@@ -35,43 +35,42 @@ def setup_output(g: Gesture, em: myo.EMGMode) -> PurePath:
 
 async def main(args: argparse.Namespace):
     logger.info("scanning for a Myo device...")
-    while True:
-        mc = await MyoClient.with_device(args.mac)
-        if mc:
-            break
+    mm = None
+    while mm is None:
+        mm = await MyoManager.with_device(args.mac)
 
     logger.info("connected to a Myo")
 
     global gesture, buf
     gesture = Gesture(args.gesture)
-    emg_mode = myo.EMGMode(args.emg_mode)
+    emg_mode = EMGMode(args.emg_mode)
     outpath = setup_output(gesture, emg_mode)
     buf = []
 
-    def write_emg_data_to_csv(emg_data: myo.EMGData):
+    def write_emg_data_to_csv(emg_data: EMGData):
         global gesture, buf
         line = ",".join(map(str, emg_data + (gesture.value,)))
         buf.append(line)
 
-    def write_fv_data_to_csv(fv_data: myo.FVData):
+    def write_fv_data_to_csv(fv_data: FVData):
         global gesture, buf
-        line = ",".join(map(str, fv_data.fv + (gesture.value,)))
+        line = ",".join(map(str, fv_data.fv + (fv_data.mask, gesture.value)))
         buf.append(line)
 
-    if emg_mode == myo.EMGMode.SEND_FILT:
-        mc.on_fv_data = write_fv_data_to_csv
+    if emg_mode == EMGMode.SEND_FILT:
+        mm.on_fv_data = write_fv_data_to_csv
     else:
-        mc.on_emg_data = write_emg_data_to_csv
+        mm.on_emg_data = write_emg_data_to_csv
 
-    await mc.setup(emg_mode=emg_mode)
+    await mm.setup(emg_mode=emg_mode)
     logger.info(f"start recording {gesture.name} data with {emg_mode.name} for {args.seconds} seconds")
     await asyncio.sleep(2)
-    await mc.start()
+    await mm.start()
 
     # record
     await asyncio.sleep(args.seconds)
-    await mc.stop()
-    await mc.sleep()
+    await mm.stop()
+    await mm.sleep()
 
     with open(outpath.absolute(), "a") as f:
         for line in buf:
@@ -92,9 +91,9 @@ if __name__ == "__main__":
         type=int,
     )
     parser.add_argument(
-        "--emg_mode",
+        "--emg-mode",
         choices=[1, 2, 3],
-        help="set the myo.EMGMode (1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified)",
+        help="set the myo.types.EMGMode (1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified)",
         type=int,
         default=1,
     )

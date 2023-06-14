@@ -3,31 +3,48 @@ import argparse
 import asyncio
 import logging
 
-import myo
+import myo.types as mt
 
 # from .kt_mode import KTMode
 # from .ros import XArm7
-from .gesture import Gesture, GestureClassifierLegacy
-from .myo_client import MyoClient
+from .gesture import Gesture, GestureClassifierLegacy, GestureClassifierModel
+from .myo_manager import MyoManager
 
 logger = logging.getLogger(__name__)
 
 
 async def main(args: argparse.Namespace):
-    global gcl
-    if args.mode == "legacy":
-        # gesture
+    if args.mode == "keras":
+        logger.info("loading the keras gesture model...")
+        global gcm
+        gcm = GestureClassifierModel()
+        logger.info("scanning for a Myo device...")
+        mm = None
+        while mm is None:
+            mm = await MyoManager.with_device(args.mac)
+
+        def callback(fvd: mt.FVData):
+            global gcm
+            pred = gcm.predict(fvd)
+            logger.info(pred)
+
+        mm.on_fv_data = callback
+        await mm.setup(emg_mode=mt.EMGMode.SEND_FILT)
+        await mm.start()
+
+    elif args.mode == "legacy":
         logger.info("loading the legacy gesture classifier...")
+        global gcl
         gcl = GestureClassifierLegacy(args.legacy_n_periods, args.legacy_n_samples)
         logger.info("scanning for a Myo device...")
-        while True:
-            mc = await MyoClient.with_device(args.mac)
-            if mc:
-                break
+        mm = None
+        while mm is None:
+            mm = await MyoManager.with_device(args.mac)
 
-        mc.on_emg_data = get_legacy_classifier(args.legacy_n_periods, args.legacy_n_samples)
-        await mc.setup(emg_mode=myo.EMGMode.SEND_EMG)
-        await mc.start()
+        mm.on_emg_data = get_legacy_classifier(args.legacy_n_periods, args.legacy_n_samples)
+        await mm.setup(emg_mode=mt.EMGMode.SEND_EMG)
+        await mm.start()
+
     else:
         exit(0)
 
@@ -40,8 +57,8 @@ async def main(args: argparse.Namespace):
         pass
     finally:
         logger.info("closing the session...")
-        await mc.stop()
-        await mc.sleep()
+        await mm.stop()
+        await mm.sleep()
 
     """
     xarm7 = XArm7()
