@@ -7,8 +7,8 @@ import pandas as pd
 import tensorflow as tf
 from myo.types import EMGMode
 from tensorflow.keras import layers
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
+# from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 # from myoktros.gesture import Gesture
 
 # make numpy values easier to read.
