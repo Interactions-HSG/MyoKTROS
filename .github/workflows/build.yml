@@ -1,20 +1,37 @@
 name: build
 on:
   pull_request:
-  push:
-    branches:
-      - main
+  release:
+    types: [published]
 jobs:
-  build-wheel:
+  ruff:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - name: Lint
         uses: chartboost/ruff-action@v1
+  build:
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.11"]
+        poetry-version: ["1.5.1"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Set up Poetry
+        uses: abatilo/actions-poetry@v2
+        with:
+          poetry-version: ${{ matrix.poetry-version }}
       - name: Build
         run: |
-          pip install hatch
-          python -m hatch build
+          poetry install --no-interaction
+          poetry build
       - name: Upload wheel
         uses: actions/upload-artifact@v3
         with:
