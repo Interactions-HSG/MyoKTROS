@@ -103,11 +103,15 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 dl-myo = "^0.1.6"
+joblib = "^1.2.0"
+numpy = "^1.24.3"
+scikit-learn = "^1.2.2"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
 pytest = "^7.3.2"
 pytest-cov = "^4.1.0"
+pandas = "^2.0.2"
 
 [tool.poetry.scripts]
 myoktros = "myoktros:entrypoint"
