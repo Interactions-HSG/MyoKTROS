@@ -1,0 +1,6 @@
+version: "3.9"
+services:
+  ros2-xarm:
+    image: ghcr.io/iomz/ros2-xarm:humble
+    container_name: ros2-xarm
+    restart: unless-stopped
