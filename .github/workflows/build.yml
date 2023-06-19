@@ -1,8 +1,11 @@
 name: build
 on:
   pull_request:
-  release:
-    types: [published]
+    branches:
+      - main
+  push:
+    branches:
+      - main
 jobs:
   ruff:
     runs-on: ubuntu-latest
@@ -15,7 +18,7 @@ jobs:
       fail-fast: true
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.9", "3.10"]
         poetry-version: ["1.5.1"]
     runs-on: ${{ matrix.os }}
     steps:

@@ -271,41 +271,37 @@ class Robot:
 
 class Lite6(Robot):
     def __init__(self):
-        super().__init__()
+        pass
 
 
 class XArm7(Robot):
-    def __init__(self):
-        super().__init__()
-        self.gripper = Gripper()
-        self.current_mode = None
+    def __init__(self, ee=None):
+        self.end_effector = ee
+        if self.end_effector:
+            # self.machine.add_transition("open", ...)
+            pass
 
 
 class Gripper(Robot):
     def __init__(self):
-        super().__init__()
+        # rospy.wait_for_service("/xarm/set_load")
+        # setload = rospy.ServiceProxy("/xarm/set_load", SetLoad)
         # responseSetLoad = setload(0.82,0,0,48)
-        self.load = 0.82
-        # rospy.wait_for_service('/xarm/gripper_config')
-        # gripper_config = rospy.ServiceProxy('/xarm/gripper_config', GripperConfig)
+        self.load = (0.82, 0, 0, 48)
+        # rospy.wait_for_service("/xarm/gripper_config")
+        # gripper_config = rospy.ServiceProxy("/xarm/gripper_config", GripperConfig)
         # responseGripperConfig = gripper_config(speed)
         self.speed = 1500
         pass
 
-    async def close(self):
+    async def move(self):
         """
         move
         position:
-            - 0: reset
+            - 0: close
             - 620: grab
-            - 850: release
+            - 850: open
         """
-
-    async def open(self):
-        """
-        move
-        position:
-            - 0: reset
-            - 620: grab
-            - 850: release
-        """
+        # rospy.wait_for_service("/xarm/gripper_move")
+        # gripper_move = rospy.ServiceProxy("/xarm/gripper_move", GripperMove)
+        # responseGripperMove = gripper_move(position)

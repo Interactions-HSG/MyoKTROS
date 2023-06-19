@@ -29,7 +29,7 @@ async def main():
         model.setup()
     except RuntimeWarning:
         pass
-    model.get_graph().draw(out.absolute(), prog='dot')
+    model.get_graph().draw(out.absolute(), prog="dot")
 
 
 asyncio.run(main())

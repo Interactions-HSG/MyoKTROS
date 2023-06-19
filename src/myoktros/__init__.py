@@ -146,7 +146,7 @@ def entrypoint():
     parser.add_argument(
         "-m",
         "--mac",
-        help="specify the Myo's mac address",
+        help="specify the mac address for Myo",
     )
     parser.add_argument(
         "--legacy_n_samples",
