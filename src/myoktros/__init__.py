@@ -5,8 +5,6 @@ import logging
 
 import myo.types as mt
 
-# from .kt_mode import KTMode
-# from .ros import XArm7
 from .gesture import Gesture, GestureClassifierLegacy, GestureClassifierModel
 from .myo_manager import MyoManager
 
@@ -148,7 +146,7 @@ def entrypoint():
     parser.add_argument(
         "-m",
         "--mac",
-        help="specify the Myo's mac address",
+        help="specify the mac address for Myo",
     )
     parser.add_argument(
         "--legacy_n_samples",

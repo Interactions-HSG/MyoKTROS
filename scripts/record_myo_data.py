@@ -82,7 +82,7 @@ async def main(args: argparse.Namespace):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="Record train data from Myo's data stream",
+        description="Record train data from EMG data stream via Myo",
     )
     parser.add_argument(
         "gesture",
@@ -99,7 +99,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--mac",
-        help="the Myo's mac address",
+        help="the mac address for Myo",
     )
     parser.add_argument(
         "--seconds",
