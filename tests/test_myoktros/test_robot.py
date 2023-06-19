@@ -8,8 +8,7 @@ from myoktros.robot import Mode, Robot
 
 
 class TestRobot(Robot):
-    def __init__(self):
-        super().__init__()
+    __test__ = False
 
     async def disable_free_drive(self):
         await self.speak("Disabling free drive.")
@@ -54,9 +53,9 @@ def load_transition_cases():
 
     cases = [
         Case(Mode.INIT, "setup", Mode.LOCKED),
-        Case(Mode.LOCKED, "grabbed", Mode.TEACHING),
+        Case(Mode.LOCKED, "grabbed", Mode.UNLOCKED),
         Case(Mode.LOCKED, "delete", Mode.PENDING_DELETION),
-        Case(Mode.TEACHING, "confirm", Mode.LOCKED),
+        Case(Mode.UNLOCKED, "confirm", Mode.LOCKED),
         Case(Mode.ERROR, "reset", Mode.LOCKED),
         Case(Mode.PLAYING_ONCE, "error", Mode.ERROR),
         Case(Mode.PENDING_DELETION, "cancel", Mode.LOCKED),
@@ -65,9 +64,11 @@ def load_transition_cases():
         Case(Mode.PENDING_PLAY_REPEAT, "cancel", Mode.LOCKED),
         Case(Mode.PENDING_PLAY_REPEAT, "confirm", Mode.PLAYING_REPEAT),
         Case(Mode.PLAYING_REPEAT, "cancel", Mode.LOCKED),
+        Case(Mode.LOCKED, "next", Mode.LOCKED),
+        Case(Mode.LOCKED, "previous", Mode.LOCKED),
         Case(Mode.INIT, "grabbed", Mode.INIT, False),
         Case(Mode.PLAYING_ONCE, "grabbed", Mode.PLAYING_ONCE, False),
-        Case(Mode.TEACHING, "grabbed", Mode.TEACHING, False),
+        Case(Mode.UNLOCKED, "grabbed", Mode.UNLOCKED, False),
     ]
 
     return cases
@@ -78,8 +79,13 @@ def load_transition_cases():
 async def test_robot_transitions(case):
     tr = TestRobot()
     tr.machine.set_state(case.src)
-    if case.trigger == "delete" or case.trigger == "confirm":
-        tr.waypoints[tr.current_step] = 0.1
+    if case.trigger in ["confirm", "delete", "next", "previous", "play_once", "play_repeat"]:
+        tr.waypoints = {
+            0: 0.1,
+            1: 0.1,
+            2: 0.1,
+        }
+        tr.current_step = 1
     trigger = getattr(tr, case.trigger)
     if case.ok:
         await trigger()

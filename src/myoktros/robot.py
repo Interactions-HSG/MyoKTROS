@@ -10,12 +10,13 @@ logger = logging.getLogger(__name__)
 class Mode(Enum):
     INIT = 0
     LOCKED = 1
-    TEACHING = 2
-    PLAYING_ONCE = 3
-    PLAYING_REPEAT = 4
+    UNLOCKED = 2
     PENDING_DELETION = 10
     PENDING_PLAY_ONCE = 11
     PENDING_PLAY_REPEAT = 12
+    ADJUSTING = 20
+    PLAYING_ONCE = 21
+    PLAYING_REPEAT = 22
     ERROR = -1
 
 
@@ -40,7 +41,7 @@ class Robot:
         },
         {
             'trigger': 'cancel',
-            'source': Mode.TEACHING,
+            'source': Mode.UNLOCKED,
             'dest': Mode.LOCKED,
             'before': '_report_cancel_teaching',
             'after': 'disable_free_drive',
@@ -67,7 +68,7 @@ class Robot:
         },
         {
             'trigger': 'confirm',
-            'source': Mode.TEACHING,
+            'source': Mode.UNLOCKED,
             'dest': Mode.LOCKED,
             'before': '_report_confirm_waypoint',
             'after': ['_save_waypoint', 'disable_free_drive'],
@@ -75,13 +76,13 @@ class Robot:
         {
             'trigger': 'grabbed',
             'source': Mode.LOCKED,
-            'dest': Mode.TEACHING,
+            'dest': Mode.UNLOCKED,
             'before': '_report_unlocked',
             'after': 'enable_free_drive',
         },
         {
             'trigger': 'delete',
-            'source': [Mode.LOCKED, Mode.TEACHING],
+            'source': Mode.LOCKED,
             'dest': Mode.PENDING_DELETION,
             'conditions': '_has_current_step',
             'after': '_ask_deletion',
@@ -96,16 +97,23 @@ class Robot:
         {
             'trigger': 'previous',
             'source': Mode.LOCKED,
-            'dest': '=',
-            'conditions': 'has_previous_step',
-            'before': '_move_to_previous',
+            'dest': Mode.ADJUSTING,
+            'conditions': '_has_previous_step',
+            'before': '_report_move_to_previous',
+            'after': '_move_to_previous',
         },
         {
             'trigger': 'next',
             'source': Mode.LOCKED,
-            'dest': '=',
-            'conditions': 'has_next_step',
-            'before': '_move_to_next',
+            'dest': Mode.ADJUSTING,
+            'conditions': '_has_next_step',
+            'before': '_report_move_to_next',
+            'after': '_move_to_next',
+        },
+        {
+            'trigger': 'finish_adjusting',
+            'source': Mode.ADJUSTING,
+            'dest': Mode.LOCKED,
         },
         {
             'trigger': 'finish_playing_once',
@@ -114,15 +122,27 @@ class Robot:
             'after': '_report_playing_once_completed',
         },
         {
+            'trigger': 'play_once',
+            'source': Mode.LOCKED,
+            'dest': Mode.PENDING_PLAY_ONCE,
+            'after': '_ask_play_once',
+        },
+        {
+            'trigger': 'play_repeat',
+            'source': Mode.LOCKED,
+            'dest': Mode.PENDING_PLAY_REPEAT,
+            'after': '_ask_play_repeat',
+        },
+        {
             'trigger': 'reset',
-            'source': '*',
+            'source': Mode.ERROR,
             'dest': Mode.LOCKED,
             'before': '_setup',
             'after': '_report_reset_completed',
         },
         {
             'trigger': 'error',
-            'source': '*',
+            'source': [Mode.PLAYING_ONCE, Mode.PLAYING_REPEAT],
             'dest': Mode.ERROR,
             'after': '_report_error',
         },
@@ -142,13 +162,13 @@ class Robot:
         self.current_step = 0
 
     async def _ask_deletion(self):
-        self.speak("Do you want to delete the current step?")
+        await self.speak("Do you want to delete the current step?")
 
     async def _ask_play_once(self):
-        self.speak("Do you want to play the recorded waypoints once?")
+        await self.speak("Do you want to play the recorded waypoints once?")
 
     async def _ask_play_repeat(self):
-        self.speak("Do you want to repeat playing the recorded waypoints?")
+        await self.speak("Do you want to repeat playing the recorded waypoints?")
 
     def _delete_waypoint(self):
         self.waypoints.pop(self.current_step)
@@ -167,10 +187,12 @@ class Robot:
     async def _move_to_next(self):
         self.current_step += 1
         await self.move()
+        self.finish_adjusting()
 
     async def _move_to_previous(self):
         self.current_step -= 1
         await self.move()
+        self.finish_adjusting()
 
     async def _report_cancel_deletion(self):
         await self.speak("Waypoint deletion cancelled.")
@@ -195,6 +217,12 @@ class Robot:
 
     async def _report_error(self):
         await self.speak("Error detected. Please reset.")
+
+    async def _report_move_to_next(self):
+        await self.speak("Moving to the next waypoint.")
+
+    async def _report_move_to_previous(self):
+        await self.speak("Moving to the previous waypoint.")
 
     async def _report_playing_once_completed(self):
         await self.speak("Finished playing waypoints.")
