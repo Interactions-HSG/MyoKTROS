@@ -5,8 +5,6 @@ import logging
 
 import myo.types as mt
 
-# from .kt_mode import KTMode
-# from .ros import XArm7
 from .gesture import Gesture, GestureClassifierLegacy, GestureClassifierModel
 from .myo_manager import MyoManager
 
