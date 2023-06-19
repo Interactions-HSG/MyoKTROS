@@ -125,12 +125,14 @@ class Robot:
             'trigger': 'play_once',
             'source': Mode.LOCKED,
             'dest': Mode.PENDING_PLAY_ONCE,
+            'conditions': '_has_valid_waypoints',
             'after': '_ask_play_once',
         },
         {
             'trigger': 'play_repeat',
             'source': Mode.LOCKED,
             'dest': Mode.PENDING_PLAY_REPEAT,
+            'conditions': '_has_valid_waypoints',
             'after': '_ask_play_repeat',
         },
         {
@@ -183,6 +185,9 @@ class Robot:
     def _has_previous_step(self):
         prev_step = self.current_step - 1
         return prev_step in self.waypoints and self.waypoints[prev_step]
+
+    def _has_valid_waypoints(self):
+        return all(self.waypoints.values())
 
     async def _move_to_next(self):
         self.current_step += 1
