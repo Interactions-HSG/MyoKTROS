@@ -62,7 +62,7 @@ early_stopping = EarlyStopping(monitor='val_loss', patience=5)
 history = model.fit(
     features,
     labels,
-    epochs=20,  # depends on hyperparameters
+    epochs=50,  # depends on hyperparameters
     # validation_data=(valid,valid_labels),
     # callbacks=[early_stopping, model_checkpoint],
 )
