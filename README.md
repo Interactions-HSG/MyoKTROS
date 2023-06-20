@@ -17,6 +17,7 @@ Myo EMG-based KT system for ROS.
   - [`keras` Mode Preparation](#keras-mode-preparation)
   - [`legacy` Mode Preparation](#legacy-mode-preparation)
   - [Drawing State Machine for `myoktros.Robot`](#drawing-state-machine-for-myoktrosrobot)
+- [Myo](#myo)
 - [Authors](#authors)
 
 <!-- vim-markdown-toc -->
@@ -197,6 +198,30 @@ NOTE: [pygraphviz cannot be installed straight for macOS](https://github.com/pyg
 ```
 
 ![robot_state_diagram](https://github.com/Interactions-HSG/MyoKTROS/assets/26181/2eb777df-bc40-40c8-b048-97a708295c6a)
+
+## Myo
+
+Myo Armbands are capable of streaming data as follows.
+
+|            | EMGData  | FVData  | IMUData |
+| ---------- | -------- | ------- | ------- |
+| Throughput | ~200 S/s | ~50 S/s | ~50 S/s |
+
+Use `scripts/speedometer.py` to see it yourself.
+
+```console
+❯ poetry run scripts/speedometer.py -h
+usage: speedometer.py [-h] [--emg-mode {0,1,2,3}] [--imu-mode {0,1,2,3}] [--mac MAC] [--seconds SECONDS]
+
+Measure the data stream throughput from Myo
+
+options:
+  -h, --help            show this help message and exit
+  --emg-mode {0,1,2,3}  set the myo.types.EMGMode (0: disabled, 1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified) (default: 1)
+  --imu-mode {0,1,2,3}  set the myo.types.IMUMode (0: disabled, 1: data, 2: event, 3: all) (default: 0)
+  --mac MAC             the mac address for Myo (default: None)
+  --seconds SECONDS     the duration to record in seconds (default: 10)
+```
 
 ## Authors
 
