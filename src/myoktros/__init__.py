@@ -1,50 +1,43 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import argparse
 import asyncio
 import logging
 
-import myo.types as mt
+from myo.types import ClassifierMode, EMGMode, IMUMode
 
-from .gesture import Gesture, GestureClassifierLegacy, GestureClassifierModel
-from .myo_manager import MyoManager
+from .client import KerasClient, LegacyClient
+from .robot import TalkingRobot
 
 logger = logging.getLogger(__name__)
 
 
 async def main(args: argparse.Namespace):
+    mc = None
     if args.mode == "keras":
-        logger.info("loading the keras gesture model...")
-        global gcm
-        gcm = GestureClassifierModel()
-        logger.info("scanning for a Myo device...")
-        mm = None
-        while mm is None:
-            mm = await MyoManager.with_device(args.mac)
-
-        def callback(fvd: mt.FVData):
-            global gcm
-            pred = gcm.predict(fvd)
-            logger.info(pred)
-
-        mm.on_fv_data = callback
-        await mm.setup(emg_mode=mt.EMGMode.SEND_FILT)
-        await mm.start()
+        while mc is None:
+            mc = await KerasClient.with_device(args.mac)
+        mc.set_queue_length(args.keras_queue_length)  # 1 gesture/sec
+        await mc.setup(
+            classifier_mode=ClassifierMode.ENABLED,
+            emg_mode=EMGMode.SEND_FILT,
+            imu_mode=IMUMode.SEND_EVENTS,
+        )
+        await mc.start()
 
     elif args.mode == "legacy":
-        logger.info("loading the legacy gesture classifier...")
-        global gcl
-        gcl = GestureClassifierLegacy(args.legacy_n_periods, args.legacy_n_samples)
-        logger.info("scanning for a Myo device...")
-        mm = None
-        while mm is None:
-            mm = await MyoManager.with_device(args.mac)
-
-        mm.on_emg_data = get_legacy_classifier(args.legacy_n_periods, args.legacy_n_samples)
-        await mm.setup(emg_mode=mt.EMGMode.SEND_EMG)
-        await mm.start()
+        while mc is None:
+            mc = await LegacyClient.with_device(args.mac)
+        mc.set_gesture_classifier_legacy(args.legacy_n_periods, args.legacy_n_samples)
+        await mc.setup(emg_mode=EMGMode.SEND_EMG)
+        await mc.start()
 
     else:
         exit(0)
+
+    robot = TalkingRobot()
+    mc.set_robot(robot)
+    await robot.setup()
 
     try:
         while True:
@@ -55,69 +48,8 @@ async def main(args: argparse.Namespace):
         pass
     finally:
         logger.info("closing the session...")
-        await mm.stop()
-        await mm.sleep()
-
-    """
-    xarm7 = XArm7()
-    pred = Gesture.zero
-
-    def update():
-        return None
-
-    while True:
-        # Standard Mode
-        if pred == Gesture.zero:
-            xarm7.set_mode(Mode.STANDARD_MODE)
-
-        # Teach Mode
-        elif pred == Gesture.one:
-            xarm7.set_mode(Mode.TEACH_MODE)
-
-        # Confirm Position
-        elif pred == Gesture.two:
-            xarm7.record()
-
-        # Toggle Gripper
-        elif pred == Gesture.three:
-            xarm7.gripper.toggle()
-
-        # Delete the last confirmed position
-        elif pred == Gesture.four:
-            xarm7.undo()
-
-        # Finish Teaching
-        elif pred is None:
-            break
-
-        pred = update()
-        await asyncio.sleep(1)
-
-    logging.info("executing the recorded sequence")
-    xarm7.execute()
-    """
-
-
-def on_gesture(g: Gesture):
-    logger.info(f"gesture: {g.name}")
-
-
-def get_legacy_classifier(n_periods: int = 3, n_samples: int = 10):
-    global queue
-    queue = []
-
-    def on_emg_data(data):
-        logger.debug(f"emg: {data}")
-        global queue
-        queue.append(data)
-        # wait until the queue to fill up
-        if len(queue) == n_periods * n_samples:
-            global gcl
-            g = gcl.predict(queue)
-            on_gesture(g)
-            queue = []
-
-    return on_emg_data
+        await mc.stop()
+        await mc.sleep()
 
 
 def entrypoint():
@@ -144,6 +76,12 @@ def entrypoint():
         help="sets the log level to debug",
     )
     parser.add_argument(
+        "-l",
+        "--keras-queue-length",
+        help="sets the queue length to collect gestures to detect",
+        default=20,
+    )
+    parser.add_argument(
         "-m",
         "--mac",
         help="specify the mac address for Myo",
@@ -167,4 +105,6 @@ def entrypoint():
         level=log_level,
         format="%(asctime)-15s %(name)-8s %(levelname)s: %(message)s",
     )
+    logging.getLogger("transitions.core").setLevel(logging.ERROR)
+
     asyncio.run(main(args))

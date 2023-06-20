@@ -1,11 +1,11 @@
 [project]
 name = "MyoKTROS"
 authors = [
-  { name="Iori Mizutani", email="iori.mizutani@gmail.com" },
+  { name="Iori Mizutani", email="iomz@sazanka.io" },
   { name="Felix Wohlgemuth", email="felixwohlgemuth@gmx.ch" },
 ]
 maintainers = [
-  { name="Iori Mizutani", email="iori.mizutani@gmail.com" },
+  { name="Iori Mizutani", email="iomz@sazanka.io" },
 ]
 description = "Myo EMG-based KT system for ROS"
 readme = "README.md"
@@ -97,13 +97,13 @@ exclude_lines = [
 name = "MyoKTROS"
 version = "0.0.0"
 description = "Myo EMG-based KT system for ROS"
-authors = ["Iori Mizutani <iori.mizutani@gmail.com>"]
+authors = ["Iori Mizutani <iomz@sazanka.io>"]
 license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.11"
-dl-myo = ">=0.2.0"
+dl-myo = ">=1.0.0"
 joblib = "^1.2.0"
 numpy = "^1.24.3"
 pandas = "^2.0.2"
