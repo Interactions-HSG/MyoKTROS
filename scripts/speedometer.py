@@ -102,7 +102,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--emg-mode",
         choices=[0, 1, 2, 3],
-        help="set the myo.types.EMGMode (0: disabled, 1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified)",
+        help="set the myo.types.EMGMode \
+        (0: disabled, 1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified)",
         type=int,
         default=1,
     )

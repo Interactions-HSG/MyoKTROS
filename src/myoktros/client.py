@@ -14,7 +14,6 @@ from myo.types import (
 from transitions.core import MachineError
 
 from .gesture import Gesture, GestureClassifierLegacy, GestureClassifierModel
-from .robot import Mode
 
 logger = logging.getLogger(__name__)
 

@@ -79,7 +79,7 @@ def entrypoint():
         "-l",
         "--keras-queue-length",
         help="sets the queue length to collect gestures to detect",
-        default=15,
+        default=20,
     )
     parser.add_argument(
         "-m",
