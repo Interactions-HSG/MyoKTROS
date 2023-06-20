@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import asyncio
 import logging
 
 from enum import Enum
@@ -20,159 +21,173 @@ class Mode(Enum):
     ERROR = -1
 
 
-class Robot:
-    transitions = [
-        {
-            'trigger': 'cancel',
-            'source': Mode.PENDING_DELETION,
-            'dest': Mode.LOCKED,
-            'before': '_report_cancel_deletion',
-        },
-        {
-            'trigger': 'cancel',
-            'source': [
-                Mode.PENDING_PLAY_ONCE,
-                Mode.PENDING_PLAY_REPEAT,
-                Mode.PLAYING_ONCE,
-                Mode.PLAYING_REPEAT,
-            ],
-            'dest': Mode.LOCKED,
-            'before': '_report_cancel_playing',
-        },
-        {
-            'trigger': 'cancel',
-            'source': Mode.UNLOCKED,
-            'dest': Mode.LOCKED,
-            'before': '_report_cancel_teaching',
-            'after': 'disable_free_drive',
-        },
-        {
-            'trigger': 'confirm',
-            'source': Mode.PENDING_DELETION,
-            'dest': Mode.LOCKED,
-            'conditions': '_has_current_step',
-            'before': '_report_confirm_deletion',
-            'after': '_delete_waypoint',
-        },
-        {
-            'trigger': 'confirm',
-            'source': Mode.PENDING_PLAY_ONCE,
-            'dest': Mode.PLAYING_ONCE,
-            'before': '_report_confirm_play_once',
-        },
-        {
-            'trigger': 'confirm',
-            'source': Mode.PENDING_PLAY_REPEAT,
-            'dest': Mode.PLAYING_REPEAT,
-            'before': '_report_confirm_play_repeat',
-        },
-        {
-            'trigger': 'confirm',
-            'source': Mode.UNLOCKED,
-            'dest': Mode.LOCKED,
-            'before': '_report_confirm_waypoint',
-            'after': ['_save_waypoint', 'disable_free_drive'],
-        },
-        {
-            'trigger': 'grabbed',
-            'source': Mode.LOCKED,
-            'dest': Mode.UNLOCKED,
-            'before': '_report_unlocked',
-            'after': 'enable_free_drive',
-        },
-        {
-            'trigger': 'delete',
-            'source': Mode.LOCKED,
-            'dest': Mode.PENDING_DELETION,
-            'conditions': '_has_current_step',
-            'after': '_ask_deletion',
-        },
-        {
-            'trigger': 'setup',
-            'source': Mode.INIT,
-            'dest': Mode.LOCKED,
-            'before': '_setup',
-            'after': '_report_setup_completed',
-        },
-        {
-            'trigger': 'previous',
-            'source': Mode.LOCKED,
-            'dest': Mode.ADJUSTING,
-            'conditions': '_has_previous_step',
-            'before': '_report_move_to_previous',
-            'after': '_move_to_previous',
-        },
-        {
-            'trigger': 'next',
-            'source': Mode.LOCKED,
-            'dest': Mode.ADJUSTING,
-            'conditions': '_has_next_step',
-            'before': '_report_move_to_next',
-            'after': '_move_to_next',
-        },
-        {
-            'trigger': 'finish_adjusting',
-            'source': Mode.ADJUSTING,
-            'dest': Mode.LOCKED,
-        },
-        {
-            'trigger': 'finish_playing_once',
-            'source': Mode.PLAYING_ONCE,
-            'dest': Mode.LOCKED,
-            'after': '_report_playing_once_completed',
-        },
-        {
-            'trigger': 'play_once',
-            'source': Mode.LOCKED,
-            'dest': Mode.PENDING_PLAY_ONCE,
-            'conditions': '_has_valid_waypoints',
-            'after': '_ask_play_once',
-        },
-        {
-            'trigger': 'play_repeat',
-            'source': Mode.LOCKED,
-            'dest': Mode.PENDING_PLAY_REPEAT,
-            'conditions': '_has_valid_waypoints',
-            'after': '_ask_play_repeat',
-        },
-        {
-            'trigger': 'reset',
-            'source': Mode.ERROR,
-            'dest': Mode.LOCKED,
-            'before': '_setup',
-            'after': '_report_reset_completed',
-        },
-        {
-            'trigger': 'error',
-            'source': [Mode.PLAYING_ONCE, Mode.PLAYING_REPEAT],
-            'dest': Mode.ERROR,
-            'after': '_report_error',
-        },
-    ]
+Transitions = [
+    {
+        'trigger': 'cancel',
+        'source': Mode.PENDING_DELETION,
+        'dest': Mode.LOCKED,
+        'before': '_report_cancel_deletion',
+    },
+    {
+        'trigger': 'cancel',
+        'source': [
+            Mode.PENDING_PLAY_ONCE,
+            Mode.PENDING_PLAY_REPEAT,
+            Mode.PLAYING_ONCE,
+            Mode.PLAYING_REPEAT,
+        ],
+        'dest': Mode.LOCKED,
+        'before': '_report_cancel_playing',
+    },
+    {
+        'trigger': 'cancel',
+        'source': Mode.UNLOCKED,
+        'dest': Mode.LOCKED,
+        'before': '_report_cancel_teaching',
+        'after': 'disable_free_drive',
+    },
+    {
+        'trigger': 'confirm',
+        'source': Mode.PENDING_DELETION,
+        'dest': Mode.LOCKED,
+        'before': '_report_confirm_deletion',
+        'after': '_delete_waypoint',
+    },
+    {
+        'trigger': 'confirm',
+        'source': Mode.PENDING_PLAY_ONCE,
+        'dest': Mode.PLAYING_ONCE,
+        'before': '_play_once',
+    },
+    {
+        'trigger': 'confirm',
+        'source': Mode.PENDING_PLAY_REPEAT,
+        'dest': Mode.PLAYING_REPEAT,
+        'before': '_play_repeat',
+    },
+    {
+        'trigger': 'confirm',
+        'source': Mode.UNLOCKED,
+        'dest': Mode.LOCKED,
+        'before': '_report_confirm_waypoint',
+        'after': ['_save_waypoint', 'disable_free_drive'],
+    },
+    {
+        'trigger': 'grabbed',
+        'source': Mode.LOCKED,
+        'dest': Mode.UNLOCKED,
+        'before': '_report_unlocked',
+        'after': 'enable_free_drive',
+    },
+    {
+        'trigger': 'delete',
+        'source': Mode.LOCKED,
+        'dest': Mode.PENDING_DELETION,
+        'conditions': '_has_previous_step',
+        'after': '_ask_deletion',
+    },
+    {
+        'trigger': 'setup',
+        'source': Mode.INIT,
+        'dest': Mode.LOCKED,
+        'before': '_setup',
+        'after': '_report_setup_completed',
+    },
+    {
+        'trigger': 'previous',
+        'source': Mode.LOCKED,
+        'dest': Mode.ADJUSTING,
+        'conditions': '_has_previous_step',
+        'before': '_move_to_previous',
+        'after': '_report_adjusting_completed',
+    },
+    {
+        'trigger': 'next',
+        'source': Mode.LOCKED,
+        'dest': Mode.ADJUSTING,
+        'conditions': '_has_next_step',
+        'before': '_move_to_next',
+        'after': '_report_adjusting_completed',
+    },
+    {
+        'trigger': 'finish_adjusting',
+        'source': Mode.ADJUSTING,
+        'dest': Mode.LOCKED,
+    },
+    {
+        'trigger': 'finish_playing_once',
+        'source': Mode.PLAYING_ONCE,
+        'dest': Mode.LOCKED,
+        'after': '_report_playing_once_completed',
+    },
+    {
+        'trigger': 'play_next',
+        'source': Mode.PLAYING_ONCE,
+        'dest': '=',
+        'after': '_play_next',
+    },
+    {
+        'trigger': 'play_next_repeat',
+        'source': Mode.PLAYING_REPEAT,
+        'dest': '=',
+        'after': '_play_next_repeat',
+    },
+    {
+        'trigger': 'play_once',
+        'source': Mode.LOCKED,
+        'dest': Mode.PENDING_PLAY_ONCE,
+        'conditions': '_has_valid_waypoints',
+        'after': '_ask_play_once',
+    },
+    {
+        'trigger': 'play_repeat',
+        'source': Mode.LOCKED,
+        'dest': Mode.PENDING_PLAY_REPEAT,
+        'conditions': '_has_valid_waypoints',
+        'after': '_ask_play_repeat',
+    },
+    {
+        'trigger': 'reset',
+        'source': Mode.ERROR,
+        'dest': Mode.LOCKED,
+        'before': '_setup',
+        'after': '_report_reset_completed',
+    },
+    {
+        'trigger': 'error',
+        'source': [Mode.PLAYING_ONCE, Mode.PLAYING_REPEAT],
+        'dest': Mode.ERROR,
+        'after': '_report_error',
+    },
+]
 
+
+class Robot:
     def __init__(self):
         self.machine = AsyncMachine(
             model=self,
             states=Mode,
-            transitions=Robot.transitions,
+            transitions=Transitions,
             initial=Mode.INIT,
             queued=True,
         )
+
         # initialize the recorded waypoints
         self.waypoints = dict()
         # inititalize the current step index
         self.current_step = 0
 
     async def _ask_deletion(self):
-        await self.speak("Do you want to delete the current step?")
+        await self.speak("Confirm Deleting the Previous Step")
 
     async def _ask_play_once(self):
-        await self.speak("Do you want to play the recorded waypoints once?")
+        await self.speak("Confirm Playing the Recording Once")
 
     async def _ask_play_repeat(self):
-        await self.speak("Do you want to repeat playing the recorded waypoints?")
+        await self.speak("Confirm Repeating the Recordeding")
 
     def _delete_waypoint(self):
+        self.current_step -= 1
         self.waypoints.pop(self.current_step)
 
     def _has_current_step(self):
@@ -192,54 +207,72 @@ class Robot:
     async def _move_to_next(self):
         self.current_step += 1
         await self.move()
-        self.finish_adjusting()
 
     async def _move_to_previous(self):
         self.current_step -= 1
         await self.move()
-        self.finish_adjusting()
+
+    async def _play_next(self):
+        logger.info("_play_next")
+        if self._has_next_step():
+            await self._move_to_next()
+            await self.play_next()
+        else:
+            await self.finish_playing_once()
+
+    async def _play_next_repeat(self):
+        if self._has_next_step():
+            await self._move_to_next()
+        else:
+            self.current_step = 0
+            await self.move()
+        await self.play_next_repeat()
+
+    async def _play_once(self):
+        await self.speak("Playing waypoints once")
+        self.current_step = 0
+        await self.move()
+        await self.play_next()
+
+    async def _play_repeat(self):
+        await self.speak("Repeat playing waypoints")
+        self.current_step = 0
+        await self.move()
+        await self.play_next_repeat()
+
+    async def _report_adjusting_completed(self):
+        await self.speak("Adjusting completed")
+        await self.finish_adjusting()
 
     async def _report_cancel_deletion(self):
-        await self.speak("Waypoint deletion cancelled.")
+        await self.speak("Cancelled deletion")
 
     async def _report_cancel_playing(self):
-        await self.speak("Playing waypoints cancelled.")
+        await self.speak("Cancelled playing")
 
     async def _report_cancel_teaching(self):
-        await self.speak("Recording cancelled.")
+        await self.speak("Cancelled teaching")
 
     async def _report_confirm_deletion(self):
-        await self.speak("Waypoint deleted.")
-
-    async def _report_confirm_play_once(self):
-        await self.speak("Playing waypoints once.")
-
-    async def _report_confirm_play_repeat(self):
-        await self.speak("Repeat playing waypoints.")
+        await self.speak("Deleted the Waypoint")
 
     async def _report_confirm_waypoint(self):
-        await self.speak("Waipoint recorded.")
+        await self.speak("Recorded the Waipoint")
 
     async def _report_error(self):
         await self.speak("Error detected. Please reset.")
 
-    async def _report_move_to_next(self):
-        await self.speak("Moving to the next waypoint.")
-
-    async def _report_move_to_previous(self):
-        await self.speak("Moving to the previous waypoint.")
-
     async def _report_playing_once_completed(self):
-        await self.speak("Finished playing waypoints.")
+        await self.speak("Finished playing waypoints")
 
     async def _report_reset_completed(self):
-        await self.speak("Reset completed.")
+        await self.speak("Reset Completed")
 
     async def _report_setup_completed(self):
-        await self.speak("Setup completed.")
+        await self.speak("Setup Completed")
 
     async def _report_unlocked(self):
-        await self.speak("Robot unlocked.")
+        await self.speak("Teaching Mode")
 
     async def _save_waypoint(self):
         self.waypoints[self.current_step] = await self.get_pose()
@@ -267,6 +300,28 @@ class Robot:
     async def speak(self, text):
         """this method needs to be implemented per robot"""
         raise NotImplementedError()
+
+
+class TalkingRobot(Robot):
+    def __init__(self):
+        super().__init__()
+
+    async def disable_free_drive(self):
+        await asyncio.sleep(0.1)
+
+    async def enable_free_drive(self):
+        await asyncio.sleep(0.1)
+
+    async def get_pose(self):
+        await asyncio.sleep(0.1)
+        return 1
+
+    async def move(self):
+        await asyncio.sleep(0.5)
+
+    async def speak(self, text):
+        if text != "":
+            await asyncio.create_subprocess_exec("say", text)
 
 
 class Lite6(Robot):

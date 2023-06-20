@@ -6,10 +6,10 @@ import logging
 import time
 from pathlib import Path, PurePath
 
-from myo.types import EMGData, EMGMode, FVData
+from myo import MyoClient
+from myo.types import EMGData, EMGMode, FVData, VibrationType
 
 from myoktros.gesture import Gesture
-from myoktros.myo_manager import MyoManager
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -18,15 +18,33 @@ logging.basicConfig(
 )
 
 
+class RecorderClient(MyoClient):
+    def __init__(self):
+        super().__init__()
+        self.buf = []
+        self.gesture = None
+
+    async def on_emg_data(self, emg: EMGData):
+        line = ",".join(map(str, emg + (self.gesture.value,)))
+        self.buf.append(line)
+
+    async def on_fv_data(self, fvd: FVData):
+        line = ",".join(map(str, (time.time(),) + fvd.fv + (fvd.mask, self.gesture.value)))
+        self.buf.append(line)
+
+    def set_gesture(self, g):
+        self.gesture = g
+
+
 def setup_output(g: Gesture, em: EMGMode) -> PurePath:
-    out_dir = Path(__file__).parent.parent / "assets"
-    if not out_dir.exists():
-        out_dir.mkdir()
+    datadir = Path(__file__).parent.parent / "assets" / "keras_gesture_data"
+    if not datadir.exists():
+        datadir.mkdir()
     now = time.strftime("%Y%m%d%H%M%S")
-    p = out_dir / f"{em.name}-{g.name}-{now}.csv"
+    p = datadir / f"{em.name}-{g.name}-{now}.csv"
     with open(p.absolute(), "w") as f:
         if em == EMGMode.SEND_FILT:
-            print("fv0,fv1,fv2,fv3,fv4,fv5,fv6,fv7,mask,gesture", file=f)
+            print("timestamp,fv0,fv1,fv2,fv3,fv4,fv5,fv6,fv7,mask,gesture", file=f)
         else:
             print("emg0,emg1,emg2,emg3,emg4,emg5,emg6,emg7,gesture", file=f)
 
@@ -35,45 +53,37 @@ def setup_output(g: Gesture, em: EMGMode) -> PurePath:
 
 async def main(args: argparse.Namespace):
     logger.info("scanning for a Myo device...")
-    mm = None
-    while mm is None:
-        mm = await MyoManager.with_device(args.mac)
+    rc = None
+    while rc is None:
+        rc = await RecorderClient.with_device(args.mac)
 
-    logger.info("connected to a Myo")
-
-    global gesture, buf
     gesture = Gesture(args.gesture)
+    rc.set_gesture(gesture)
     emg_mode = EMGMode(args.emg_mode)
     outpath = setup_output(gesture, emg_mode)
-    buf = []
 
-    def write_emg_data_to_csv(emg_data: EMGData):
-        global gesture, buf
-        line = ",".join(map(str, emg_data + (gesture.value,)))
-        buf.append(line)
-
-    def write_fv_data_to_csv(fv_data: FVData):
-        global gesture, buf
-        line = ",".join(map(str, fv_data.fv + (fv_data.mask, gesture.value)))
-        buf.append(line)
-
-    if emg_mode == EMGMode.SEND_FILT:
-        mm.on_fv_data = write_fv_data_to_csv
-    else:
-        mm.on_emg_data = write_emg_data_to_csv
-
-    await mm.setup(emg_mode=emg_mode)
+    await rc.setup(emg_mode=emg_mode)
     logger.info(f"start recording {gesture.name} data with {emg_mode.name} for {args.seconds} seconds")
-    await asyncio.sleep(2)
-    await mm.start()
+    logger.info("starting in 3")
+    await rc.vibrate(VibrationType.SHORT)
+    await asyncio.sleep(1)
+    logger.info("starting in 2")
+    await rc.vibrate(VibrationType.SHORT)
+    await asyncio.sleep(1)
+    logger.info("starting in 1")
+    await rc.vibrate(VibrationType.SHORT)
+    await asyncio.sleep(1)
+    logger.info("go!")
+    await rc.vibrate(VibrationType.MEDIUM)
+    await rc.start()
 
     # record
     await asyncio.sleep(args.seconds)
-    await mm.stop()
-    await mm.sleep()
+    await rc.stop()
+    await rc.sleep()
 
     with open(outpath.absolute(), "a") as f:
-        for line in buf:
+        for line in rc.buf:
             print(line, file=f)
 
     logger.info(f"saved the recorded data to {outpath.absolute()}")

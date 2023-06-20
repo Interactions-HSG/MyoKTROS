@@ -15,12 +15,14 @@ from tensorflow.keras import layers
 np.set_printoptions(precision=3, suppress=True)
 
 assets = Path(__file__).parent.parent / "assets"
-df = pd.concat(map(pd.read_csv, list(assets.glob(f"{EMGMode.SEND_FILT.name}-*.csv"))), ignore_index=True)
+datadir = assets / "keras_gesture_data"
+df = pd.concat(map(pd.read_csv, list(datadir.glob(f"{EMGMode.SEND_FILT.name}-*.csv"))), ignore_index=True)
 
 # the mask value in FVData is not useful
 df = df.drop(columns="mask")
 
 labels = df.pop('gesture')
+_ = df.pop('timestamp')
 features = df.copy()
 
 # all features are in the same unit
@@ -37,8 +39,8 @@ model = tf.keras.Sequential(
         layers.Dense(100, activation="relu", input_shape=(8,)),
         # second hidden layer
         layers.Dense(30, activation="relu"),
-        # output layer, 5 gestures
-        layers.Dense(5, activation="sigmoid"),
+        # output layer, 7 gestures
+        layers.Dense(7, activation="sigmoid"),
     ]
 )
 model.compile(
@@ -62,7 +64,7 @@ early_stopping = EarlyStopping(monitor='val_loss', patience=5)
 history = model.fit(
     features,
     labels,
-    epochs=50,  # depends on hyperparameters
+    epochs=30,  # depends on hyperparameters
     # validation_data=(valid,valid_labels),
     # callbacks=[early_stopping, model_checkpoint],
 )

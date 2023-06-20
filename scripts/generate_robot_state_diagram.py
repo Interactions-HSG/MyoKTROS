@@ -4,7 +4,7 @@ import asyncio
 from pathlib import Path
 from transitions.extensions import GraphMachine
 
-from myoktros.robot import Mode, Robot
+from myoktros.robot import Mode, Robot, Transitions
 
 
 class Model(Robot):
@@ -12,7 +12,7 @@ class Model(Robot):
         self.machine = GraphMachine(
             model=self,
             states=Mode,
-            transitions=self.transitions,
+            transitions=Transitions,
             initial=Mode.INIT,
             # title="MyoKTROS Robot State Machine",
             title="",

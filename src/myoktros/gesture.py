@@ -13,11 +13,13 @@ logger = logging.getLogger(__name__)
 
 
 class Gesture(aenum.Enum):
-    RELAX = 0
-    GRAB = 1
-    STRETCH_FINGER = 2
-    BEND_WRIST = 3  # extension
-    FLEXION = 4
+    GRAB = 0
+    STRETCH_FINGER = 1
+    EXTENSION = 2
+    FLEXION = 3
+    HORN = 4
+    GUN = 5
+    RELAX = 6
 
 
 class GestureClassifierLegacy:
