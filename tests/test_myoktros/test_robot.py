@@ -26,9 +26,8 @@ class TestRobot(Robot):
         await asyncio.sleep(0.1)
 
     async def speak(self, text):
-        if text != "":
-            # await asyncio.create_subprocess_exec("say", text)
-            await asyncio.sleep(0.1)
+        # await asyncio.create_subprocess_exec("say", text)
+        await asyncio.sleep(0.1)
 
 
 def parametrize(name, values):
@@ -49,21 +48,26 @@ def load_transition_cases():
 
     cases = [
         Case(Mode.INIT, 'setup', Mode.LOCKED),
-        Case(Mode.LOCKED, 'grabbed', Mode.UNLOCKED),
         Case(Mode.LOCKED, 'delete', Mode.PENDING_DELETION),
+        Case(Mode.LOCKED, 'grabbed', Mode.UNLOCKED),
+        Case(Mode.LOCKED, 'next', Mode.LOCKED),
+        Case(Mode.LOCKED, 'play', Mode.PENDING_PLAYING),
+        Case(Mode.LOCKED, 'previous', Mode.LOCKED),
+        Case(Mode.UNLOCKED, 'cancel', Mode.LOCKED),
         Case(Mode.UNLOCKED, 'confirm', Mode.LOCKED),
-        Case(Mode.ERROR, 'reset', Mode.LOCKED),
-        Case(Mode.PLAYING_ONCE, 'error', Mode.ERROR),
         Case(Mode.PENDING_DELETION, 'cancel', Mode.LOCKED),
         Case(Mode.PENDING_DELETION, 'confirm', Mode.LOCKED),
-        Case(Mode.PENDING_PLAY_ONCE, 'confirm', Mode.PLAYING_ONCE),
-        Case(Mode.PENDING_PLAY_REPEAT, 'cancel', Mode.LOCKED),
-        Case(Mode.PENDING_PLAY_REPEAT, 'confirm', Mode.PLAYING_REPEAT),
-        Case(Mode.PLAYING_REPEAT, 'cancel', Mode.LOCKED),
-        Case(Mode.LOCKED, 'next', Mode.LOCKED),
-        Case(Mode.LOCKED, 'previous', Mode.LOCKED),
+        Case(Mode.ADJUSTING, 'cancel', Mode.LOCKED),
+        Case(Mode.ADJUSTING, 'finish_adjusting', Mode.LOCKED),
+        Case(Mode.PENDING_PLAYING, 'cancel', Mode.LOCKED),
+        Case(Mode.PENDING_PLAYING, 'confirm', Mode.PLAYING),
+        Case(Mode.PLAYING, 'cancel', Mode.LOCKED),
+        Case(Mode.PLAYING, 'error', Mode.ERROR),
+        Case(Mode.PLAYING, 'finish_playing', Mode.LOCKED),
+        Case(Mode.PLAYING, 'play_next', Mode.PLAYING),
+        Case(Mode.ERROR, 'reset', Mode.LOCKED),
         Case(Mode.INIT, 'grabbed', Mode.INIT, False),
-        Case(Mode.PLAYING_ONCE, 'grabbed', Mode.PLAYING_ONCE, False),
+        Case(Mode.PLAYING, 'grabbed', Mode.PLAYING, False),
         Case(Mode.UNLOCKED, 'grabbed', Mode.UNLOCKED, False),
     ]
 
@@ -75,11 +79,11 @@ def load_transition_cases():
 async def test_robot_transitions(case):
     tr = TestRobot()
     tr.machine.set_state(case.src)
-    if case.trigger in ['confirm', 'delete', 'next', 'previous', 'play_once', 'play_repeat']:
+    if case.trigger in ['confirm', 'delete', 'next', 'previous', 'play', 'play_next']:
         tr.waypoints = {
-            0: 0.1,
-            1: 0.1,
-            2: 0.1,
+            0: 1,
+            1: 2,
+            2: 3,
         }
         tr.current_step = 1
     trigger = getattr(tr, case.trigger)
