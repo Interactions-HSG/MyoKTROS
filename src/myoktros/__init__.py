@@ -7,7 +7,7 @@ from pathlib import Path
 
 from myo.types import ClassifierMode, EMGMode, IMUMode, Pose
 
-from .client import KerasClient, KNNClient, RecorderClient
+from .client import KerasClient, KNNClient, RecorderClient, ValidationClient
 from .gesture import Gesture, KerasSequentialModel
 from .robot import TalkingRobot
 
@@ -38,12 +38,19 @@ async def main(args: argparse.Namespace):
         rc = None
         while rc is None:
             rc = await RecorderClient.with_device(args.mac)
-        await rc.setup(emg_mode=EMGMode(args.record_emg_mode))
-        await rc.record(EMGMode(args.record_emg_mode), args.record_duration)
+        await rc.record(EMGMode(args.emg_mode), args.duration)
         exit(0)
 
     elif args.mode == "train":
         KerasSequentialModel.fit(args.train_data_path, args.train_epochs)
+        exit(0)
+
+    elif args.mode == "validate":
+        vc = None
+        while vc is None:
+            vc = await ValidationClient.with_device(args.mac)
+        vc.set_model(KerasSequentialModel())
+        await vc.validate(EMGMode(args.emg_mode), args.duration)
         exit(0)
 
     else:
@@ -58,13 +65,13 @@ async def main(args: argparse.Namespace):
         robot.trigger_map = {
             Gesture.RELAX: None,
             Gesture.GRAB: robot.grabbed,
-            Gesture.STRETCH_FINGER: robot.confirm,
-            Gesture.EXTENSION: robot.play,
+            Gesture.STRETCH_FINGER: None,
             Gesture.FLEXION: None,
-            Gesture.HORN: None,
-            Gesture.GUN: None,
-            Pose.DOUBLE_TAP: robot.cancel,
-            Pose.FINGERS_SPREAD: None,
+            Gesture.HORN: robot.play,
+            # Gesture.EXTENSION: None,
+            # Gesture.GUN: None,
+            Pose.DOUBLE_TAP: robot.confirm,
+            Pose.FINGERS_SPREAD: robot.cancel,
         }
 
     try:
@@ -87,7 +94,7 @@ def entrypoint():
     )
     parser.add_argument(
         "mode",
-        choices=["keras", "knn", "record", "train"],
+        choices=["keras", "knn", "record", "train", "validate"],
         help="mode to select",
     )
     parser.add_argument(
@@ -118,15 +125,15 @@ def entrypoint():
         default=10,
     )
     parser.add_argument(
-        "--record-duration",
-        help="seconds to record each gesture",
+        "--duration",
+        help="seconds to record each gesture for recoding/validation",
         type=int,
         default=30,
     )
     parser.add_argument(
-        "--record-emg-mode",
+        "--emg-mode",
         choices=[1, 2, 3],
-        help="set the myo.types.EMGMode for recording \
+        help="set the myo.types.EMGMode for recording/validation \
         (1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified)",
         type=int,
         default=1,

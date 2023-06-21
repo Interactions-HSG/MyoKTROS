@@ -17,10 +17,10 @@ class Gesture(Enum):
     RELAX = 0
     GRAB = 1
     STRETCH_FINGER = 2
-    EXTENSION = 3
-    FLEXION = 4
-    HORN = 5
-    GUN = 6
+    FLEXION = 3
+    HORN = 4
+    # EXTENSION = 5
+    # GUN = 6
 
 
 class KerasSequentialModel:

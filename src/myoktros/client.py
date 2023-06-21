@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import pickle
 import time
 from collections import deque
 from pathlib import Path, PurePath
@@ -152,35 +153,18 @@ class RecorderClient(MyoClient):
 
     async def record(self, em: EMGMode, seconds: int):
         self.emg_mode = em
+        await self.setup(emg_mode=em)
+
         for gesture in Gesture:
             self.buf = []
             self.gesture = gesture
 
-            # notify the user and start
-            logger.info("")
-            logger.info("start recording")
-            logger.info("")
-            logger.info(gesture.name)
-            logger.info("")
-            logger.info(f"with {self.emg_mode.name} for {seconds} seconds")
-
-            # count 5
-            for i in range(5, 0, -1):
-                logger.info(f"starting in {i}")
-                await self.vibrate(VibrationType.SHORT)
-                await asyncio.sleep(1)
-
-            logger.info("go!")
-            await self.vibrate(VibrationType.MEDIUM)
+            # start
+            await start_countdown(self.vibrate, gesture, em, seconds, "recording")
             await self.start()
 
             # record
-            for i in range(seconds, 0, -1):
-                await asyncio.sleep(1)
-                if i % 5 == 0:
-                    logger.info(f"{i} seconds left")
-                else:
-                    logger.info(".")
+            wait_countdown(seconds)
 
             # stop
             await self.stop()
@@ -208,3 +192,85 @@ class RecorderClient(MyoClient):
                 print("emg0,emg1,emg2,emg3,emg4,emg5,emg6,emg7,gesture", file=f)
 
         return p
+
+
+class ValidationClient(MyoClient):
+    def __init__(self):
+        super().__init__()
+        self.buf = []
+        self.model = None
+
+    async def on_emg_data(self, emg: EMGData):
+        pred = self.model.predict(emg)
+        self.buf.append(pred)
+
+    async def on_fv_data(self, fvd: FVData):
+        pred = self.model.predict(fvd)
+        self.buf.append(pred)
+
+    def set_model(self, model):
+        self.model = model
+
+    async def validate(self, em: EMGMode, seconds: int):
+        self.emg_mode = em
+        await self.setup(emg_mode=em)
+
+        results = {}
+        for gesture in Gesture:
+            self.buf = []
+            self.gesture = gesture
+
+            # start
+            await start_countdown(self.vibrate, gesture, em, seconds, "validating")
+            await self.start()
+
+            # record
+            wait_countdown(seconds)
+
+            # stop
+            await self.stop()
+
+            # save the result
+            results[gesture] = self.buf
+
+        # report at the end
+        for g, r in results.items():
+            acc = r.count(g) / len(r) * 100
+            logger.info(f"accuracy for {g.name}: {acc:.2f}%")
+
+        # save the result to a file
+        assets = Path.cwd() / "assets"
+        if not assets.exists():
+            assets.mkdir()
+        now = time.strftime("%Y%m%d%H%M%S")
+        p = assets / f"validation-result-{now}.csv"
+        with p.open('wb') as f:
+            pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+async def start_countdown(vibrate, gesture, em, seconds, action=""):
+    # notify the user and start
+    logger.info("")
+    logger.info(f"start {action}")
+    logger.info("")
+    logger.info(gesture.name)
+    logger.info("")
+    logger.info(f"with {em.name} for {seconds} seconds")
+
+    # count 3
+    for i in range(3, 0, -1):
+        logger.info(f"starting in {i}")
+        await vibrate(VibrationType.SHORT)
+        await asyncio.sleep(1)
+
+    logger.info("go!")
+    await vibrate(VibrationType.MEDIUM)
+
+
+async def wait_countdown(seconds):
+    for i in range(seconds, 0, -1):
+        await asyncio.sleep(1)
+        if i % 5 == 0:
+            logger.info(f"{i} seconds left")
+        else:
+            logger.info(".")
