@@ -16,7 +16,9 @@ Myo EMG-based KT system for ROS.
 - [Usage](#usage)
   - [`keras` Mode Preparation](#keras-mode-preparation)
   - [`legacy` Mode Preparation](#legacy-mode-preparation)
-  - [Drawing State Machine for `myoktros.Robot`](#drawing-state-machine-for-myoktrosrobot)
+  - [Visualizing the State Machine](#visualizing-the-state-machine)
+    - [WebMachine](#webmachine)
+    - [GraphMachine](#graphmachine)
 - [Myo](#myo)
 - [Authors](#authors)
 
@@ -168,15 +170,33 @@ then run with `--mode legacy`
 poetry run myoktros --mode legacy
 ```
 
-### Drawing State Machine for `myoktros.Robot`
+### Visualizing the State Machine
 
 `myoktros.Robot` is the base robot class for Robots to be intereacted with, and a default finite-state machine is implemented with [transitions](https://github.com/pytransitions/transitions).
 
-The state machine diagram can be visualized using `scripts/generate_robot_state_diagram".
+transitions provides two methods to draw the diagram for the state machines.
+
+#### WebMachine
+
+[transitions-gui](https://github.com/pytransitions/transitions-gui) implements `WebMachine` to produce a neat graph as a simple web service.
+
+Run `scripts/robot_web_machine.py` (startup may take a few momemnt) and access [http://localhost:8080?details=true](http://localhost:8080?details=true) on your browser.
+
+You may need additional dependencies if not with poetry:
+
+```bash
+pip install transitions-gui tornado
+```
+
+![robot_web_machine](https://github.com/Interactions-HSG/MyoKTROS/assets/26181/bb2a8bbb-04bd-4f59-a98f-70d5b5531392)
+
+#### GraphMachine
+
+The state machine diagram can also be drawn using Graphviz with the [dot layout engine](https://graphviz.org/docs/layouts/dot/) by `scripts/robot_graph_machine.py`.
 
 NOTE: [pygraphviz cannot be installed straight for macOS](https://github.com/pygraphviz/pygraphviz/issues/398#issuecomment-1038476921), so not included in the poetry dependencies.
 
-1. Install dependencies for Graphviz: see [here](https://github.com/pytransitions/transitions#-diagrams)
+1. Install Graphviz: see [here](https://github.com/pytransitions/transitions#-diagrams)
 2. Install python packages
    - for macOS
      ```bash
@@ -197,7 +217,7 @@ NOTE: [pygraphviz cannot be installed straight for macOS](https://github.com/pyg
 ./scripts/assets/generate_robot_state_diagram.py
 ```
 
-![robot_state_diagram](https://github.com/Interactions-HSG/MyoKTROS/assets/26181/2eb777df-bc40-40c8-b048-97a708295c6a)
+![robot_graph_machine](https://github.com/Interactions-HSG/MyoKTROS/assets/26181/50dd10ce-2d8c-464e-89db-3b735cf4a48a)
 
 ## Myo
 
