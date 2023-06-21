@@ -3,10 +3,7 @@ import asyncio
 import logging
 
 from enum import Enum
-from myo.types import Pose
 from transitions.extensions.asyncio import AsyncMachine
-
-from .gesture import Gesture
 
 logger = logging.getLogger(__name__)
 
