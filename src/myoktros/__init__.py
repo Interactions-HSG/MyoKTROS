@@ -3,11 +3,12 @@
 import argparse
 import asyncio
 import logging
+from pathlib import Path
 
 from myo.types import ClassifierMode, EMGMode, IMUMode, Pose
 
-from .client import KerasClient, KNNClient
-from .gesture import Gesture
+from .client import KerasClient, KNNClient, RecorderClient
+from .gesture import Gesture, KerasSequentialModel
 from .robot import TalkingRobot
 
 logger = logging.getLogger(__name__)
@@ -33,8 +34,21 @@ async def main(args: argparse.Namespace):
         await mc.setup(emg_mode=EMGMode.SEND_EMG)
         await mc.start()
 
-    else:
+    elif args.mode == "record":
+        rc = None
+        while rc is None:
+            rc = await RecorderClient.with_device(args.mac)
+        await rc.setup(emg_mode=EMGMode(args.record_emg_mode))
+        await rc.record(EMGMode(args.record_emg_mode), args.record_duration)
         exit(0)
+
+    elif args.mode == "train":
+        KerasSequentialModel.fit(args.train_data_path, args.train_epochs)
+        exit(0)
+
+    else:
+        logger.error("unknown mode: {args.mode}")
+        exit(1)
 
     robot = TalkingRobot()
     mc.set_robot(robot)
@@ -72,9 +86,8 @@ def entrypoint():
         description="Myo EMG-based KT system for ROS",
     )
     parser.add_argument(
-        "--mode",
-        choices=["keras", "knn"],
-        default="keras",
+        "mode",
+        choices=["keras", "knn", "record", "train"],
         help="mode to select",
     )
     parser.add_argument(
@@ -82,12 +95,6 @@ def entrypoint():
         "--address",
         help="the IP address for the ROS server",
         default="127.0.0.1",
-    )
-    parser.add_argument(
-        "-d",
-        "--debug",
-        action="store_true",
-        help="sets the log level to debug",
     )
     parser.add_argument(
         "-l",
@@ -110,15 +117,48 @@ def entrypoint():
         help="number of sampling periods for the knn classifier",
         default=10,
     )
+    parser.add_argument(
+        "--record-duration",
+        help="seconds to record each gesture",
+        type=int,
+        default=30,
+    )
+    parser.add_argument(
+        "--record-emg-mode",
+        choices=[1, 2, 3],
+        help="set the myo.types.EMGMode for recording \
+        (1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified)",
+        type=int,
+        default=1,
+    )
+    parser.add_argument(
+        "--train-epochs",
+        help="the epocchs for fitting the model",
+        type=int,
+        default=30,
+    )
+    parser.add_argument(
+        "--train-data-path",
+        help="the path to the directory containing recorded data",
+        type=int,
+        default=(Path.cwd() / "assets" / "keras_gesture_data").absolute(),
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="sets the log level to debug",
+    )
+
     parser.add_argument("-p", "--port", help="the port for the ROS server", default=8765)
 
     args = parser.parse_args()
 
-    log_level = logging.DEBUG if args.debug else logging.INFO
+    log_level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(
         level=log_level,
         format="%(asctime)-15s %(name)-8s %(levelname)s: %(message)s",
     )
-    logging.getLogger("transitions.core").setLevel(logging.ERROR)
+    # logging.getLogger("transitions.core").setLevel(logging.ERROR)
 
     asyncio.run(main(args))
