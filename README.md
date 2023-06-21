@@ -15,7 +15,7 @@ Myo EMG-based KT system for ROS.
   - [Build with Poetry](#build-with-poetry)
 - [Usage](#usage)
   - [`keras` Mode Preparation](#keras-mode-preparation)
-  - [`legacy` Mode Preparation](#legacy-mode-preparation)
+  - [`knn` Mode Preparation](#knn-mode-preparation)
   - [Visualizing the State Machine](#visualizing-the-state-machine)
     - [WebMachine](#webmachine)
     - [GraphMachine](#graphmachine)
@@ -46,22 +46,22 @@ poetry run myoktros
 
 ```console
 ❯ myoktros -h
-usage: myoktros [-h] [--mode {keras,legacy}] [-a ADDRESS] [-d] [-m MAC] [--legacy_n_samples LEGACY_N_SAMPLES] [--legacy_n_periods LEGACY_N_PERIODS] [-p PORT]
+usage: myoktros [-h] [--mode {keras,knn}] [-a ADDRESS] [-d] [-m MAC] [--knn_samples KNN_SAMPLES] [--knn_periods KNN_PERIODS] [-p PORT]
 
 Myo EMG-based KT system for ROS
 
 options:
   -h, --help            show this help message and exit
-  --mode {keras,legacy}
+  --mode {keras,knn}
                         mode to select (default: keras)
   -a ADDRESS, --address ADDRESS
                         the IP address for the ROS server (default: 127.0.0.1)
   -d, --debug           sets the log level to debug (default: False)
   -m MAC, --mac MAC     specify the mac address for Myo (default: None)
-  --legacy_n_samples LEGACY_N_SAMPLES
-                        number of samples for the legacy classifier (default: 3)
-  --legacy_n_periods LEGACY_N_PERIODS
-                        number of sampling periods for the legacy classifier (default: 10)
+  --knn_samples KNN_SAMPLES
+                        number of samples for the knn classifier (default: 3)
+  --knn_periods KNN_PERIODS
+                        number of sampling periods for the knn classifier (default: 10)
   -p PORT, --port PORT  the port for the ROS server (default: 8765)
 ```
 
@@ -154,20 +154,20 @@ Epoch 20/20
 poetry run scripts/build_keras_model.py  9.09s user 3.66s system 143% cpu 8.885 total
 ```
 
-### `legacy` Mode Preparation
+### `knn` Mode Preparation
 
-Use the legacy k-NN classifier with sampling normalization to detect gestures.
+Use the k-NN classifier with sampling normalization to detect gestures.
 
 First generate the classifier
 
 ```bash
-poetry run scripts/train_legacy_classifier.py
+poetry run scripts/build_knn_classifier.py
 ```
 
-then run with `--mode legacy`
+then run with `--mode knn`
 
 ```bash
-poetry run myoktros --mode legacy
+poetry run myoktros --mode knn
 ```
 
 ### Visualizing the State Machine

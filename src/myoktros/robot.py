@@ -3,7 +3,10 @@ import asyncio
 import logging
 
 from enum import Enum
+from myo.types import Pose
 from transitions.extensions.asyncio import AsyncMachine
+
+from .gesture import Gesture
 
 logger = logging.getLogger(__name__)
 
@@ -159,20 +162,23 @@ Transitions = [
 ]
 
 
-class Robot:
+class RobotModel:
     def __init__(self):
-        self.machine = AsyncMachine(
-            model=self,
-            states=Mode,
-            transitions=Transitions,
-            initial=Mode.INIT,
-            queued=True,
-        )
-
         # initialize the recorded waypoints
         self.waypoints = dict()
         # inititalize the current step index
         self.current_step = 0
+        self.trigger_map = {
+            Gesture.RELAX: None,
+            Gesture.GRAB: None,
+            Gesture.STRETCH_FINGER: None,
+            Gesture.EXTENSION: None,
+            Gesture.FLEXION: None,
+            Gesture.HORN: None,
+            Gesture.GUN: None,
+            Pose.DOUBLE_TAP: None,
+            Pose.FINGERS_SPREAD: None,
+        }
 
     async def _ask_deletion(self):
         await self.speak(f"Confirm Deleting Step {self.current_step - 1}")
@@ -282,7 +288,19 @@ class Robot:
         raise NotImplementedError()
 
 
-class TalkingRobot(Robot):
+class AsyncRobot(RobotModel):
+    def __init__(self):
+        super().__init__()
+        self.machine = AsyncMachine(
+            model=self,
+            states=Mode,
+            transitions=Transitions,
+            initial=Mode.INIT,
+            queued=True,
+        )
+
+
+class TalkingRobot(AsyncRobot):
     def __init__(self):
         super().__init__()
 
@@ -304,12 +322,12 @@ class TalkingRobot(Robot):
             await asyncio.create_subprocess_exec("say", text)
 
 
-class Lite6(Robot):
+class Lite6(AsyncRobot):
     def __init__(self):
         pass
 
 
-class XArm7(Robot):
+class XArm7(AsyncRobot):
     def __init__(self, ee=None):
         self.end_effector = ee
         if self.end_effector:
@@ -317,7 +335,7 @@ class XArm7(Robot):
             pass
 
 
-class Gripper(Robot):
+class Gripper(AsyncRobot):
     def __init__(self):
         # rospy.wait_for_service("/xarm/set_load")
         # setload = rospy.ServiceProxy("/xarm/set_load", SetLoad)

@@ -4,10 +4,10 @@ import asyncio
 import pytest
 from transitions.core import MachineError
 
-from myoktros.robot import Mode, Robot
+from myoktros.robot import AsyncRobot, Mode
 
 
-class TestRobot(Robot):
+class TestRobot(AsyncRobot):
     __test__ = False
 
     async def disable_free_drive(self):
@@ -23,7 +23,7 @@ class TestRobot(Robot):
     async def move(self):
         _ = self.waypoints[self.current_step]
         # do move
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(1)
 
     async def speak(self, text):
         # await asyncio.create_subprocess_exec("say", text)
@@ -74,8 +74,8 @@ def load_transition_cases():
     return cases
 
 
-@parametrize("case", load_transition_cases())
 @pytest.mark.asyncio
+@parametrize("case", load_transition_cases())
 async def test_robot_transitions(case):
     tr = TestRobot()
     tr.machine.set_state(case.src)
