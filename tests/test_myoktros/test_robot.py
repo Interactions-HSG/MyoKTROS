@@ -30,66 +30,71 @@ class TestRobot(AsyncRobot):
         await asyncio.sleep(0.1)
 
 
-def parametrize(name, values):
-    # function for readable description
-    return pytest.mark.parametrize(name, values, ids=map(repr, values))
-
-
-def load_transition_cases():
-    class Case:
-        def __init__(self, src, trigger, dst, ok=True):
-            self.src = src
-            self.trigger = trigger
-            self.dst = dst
-            self.ok = ok
-
-        def __repr__(self):
-            return f"{self.src}-{self.trigger}->{self.dst} ({'pass' if self.ok else 'fail'})"
-
-    cases = [
-        Case(Mode.INIT, 'setup', Mode.LOCKED),
-        Case(Mode.LOCKED, 'delete', Mode.PENDING_DELETION),
-        Case(Mode.LOCKED, 'grabbed', Mode.UNLOCKED),
-        Case(Mode.LOCKED, 'next', Mode.LOCKED),
-        Case(Mode.LOCKED, 'play', Mode.PENDING_PLAYING),
-        Case(Mode.LOCKED, 'previous', Mode.LOCKED),
-        Case(Mode.UNLOCKED, 'cancel', Mode.LOCKED),
-        Case(Mode.UNLOCKED, 'confirm', Mode.LOCKED),
-        Case(Mode.PENDING_DELETION, 'cancel', Mode.LOCKED),
-        Case(Mode.PENDING_DELETION, 'confirm', Mode.LOCKED),
-        Case(Mode.ADJUSTING, 'cancel', Mode.LOCKED),
-        Case(Mode.ADJUSTING, 'finish_adjusting', Mode.LOCKED),
-        Case(Mode.PENDING_PLAYING, 'cancel', Mode.LOCKED),
-        Case(Mode.PENDING_PLAYING, 'confirm', Mode.PLAYING),
-        Case(Mode.PLAYING, 'cancel', Mode.LOCKED),
-        Case(Mode.PLAYING, 'error', Mode.ERROR),
-        Case(Mode.PLAYING, 'finish_playing', Mode.LOCKED),
-        Case(Mode.PLAYING, 'play_next', Mode.PLAYING),
-        Case(Mode.ERROR, 'reset', Mode.LOCKED),
-        Case(Mode.INIT, 'grabbed', Mode.INIT, False),
-        Case(Mode.PLAYING, 'grabbed', Mode.PLAYING, False),
-        Case(Mode.UNLOCKED, 'grabbed', Mode.UNLOCKED, False),
-    ]
-
-    return cases
+# def __repr__(self):
+#    return f"{self.src}-{self.trigger}->{self.dst} ({'pass' if self.ok else 'fail'})"
 
 
 @pytest.mark.asyncio
-@parametrize("case", load_transition_cases())
-async def test_robot_transitions(case):
+@pytest.mark.parametrize(
+    "src,trigger,dst,ok",
+    [
+        (Mode.INIT, 'setup', Mode.LOCKED, True),
+        (Mode.LOCKED, 'delete', Mode.PENDING_DELETION, True),
+        (Mode.LOCKED, 'grabbed', Mode.UNLOCKED, True),
+        (Mode.LOCKED, 'next', Mode.LOCKED, True),
+        (Mode.LOCKED, 'play', Mode.PENDING_PLAYING, True),
+        (Mode.LOCKED, 'previous', Mode.LOCKED, True),
+        (Mode.UNLOCKED, 'cancel', Mode.LOCKED, True),
+        (Mode.UNLOCKED, 'confirm', Mode.LOCKED, True),
+        (Mode.PENDING_DELETION, 'cancel', Mode.LOCKED, True),
+        (Mode.PENDING_DELETION, 'confirm', Mode.LOCKED, True),
+        (Mode.ADJUSTING, 'cancel', Mode.LOCKED, True),
+        (Mode.ADJUSTING, 'finish_adjusting', Mode.LOCKED, True),
+        (Mode.PENDING_PLAYING, 'cancel', Mode.LOCKED, True),
+        (Mode.PENDING_PLAYING, 'confirm', Mode.PLAYING, True),
+        (Mode.PLAYING, 'cancel', Mode.LOCKED, True),
+        (Mode.PLAYING, 'error', Mode.ERROR, True),
+        (Mode.PLAYING, 'finish_playing', Mode.LOCKED, True),
+        (Mode.PLAYING, 'play_next', Mode.PLAYING, True),
+        (Mode.ERROR, 'reset', Mode.LOCKED, True),
+        (Mode.INIT, 'grabbed', Mode.INIT, False),
+        (Mode.PLAYING, 'grabbed', Mode.PLAYING, False),
+        (Mode.UNLOCKED, 'grabbed', Mode.UNLOCKED, False),
+    ],
+)
+async def test_transitions(src, trigger, dst, ok):
     tr = TestRobot()
-    tr.machine.set_state(case.src)
-    if case.trigger in ['confirm', 'delete', 'next', 'previous', 'play', 'play_next']:
+    if trigger in ['confirm', 'delete', 'next', 'previous', 'play', 'play_next']:
         tr.waypoints = {
             0: 1,
             1: 2,
             2: 3,
         }
         tr.current_step = 1
-    trigger = getattr(tr, case.trigger)
-    if case.ok:
+
+    tr.machine.set_state(src)
+    trigger = getattr(tr, trigger)
+    if ok:
         await trigger()
     else:
         with pytest.raises(MachineError):
             await trigger()
-    assert tr.state == case.dst
+    assert tr.state == dst
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "src,trigger,dst",
+    [
+        (Mode.LOCKED, 'delete', Mode.LOCKED),
+        (Mode.LOCKED, 'next', Mode.LOCKED),
+        (Mode.LOCKED, 'play', Mode.LOCKED),
+        (Mode.LOCKED, 'previous', Mode.LOCKED),
+    ],
+)
+async def test_invalid_conditions(src, trigger, dst):
+    tr = TestRobot()
+    tr.machine.set_state(src)
+    trigger = getattr(tr, trigger)
+    await trigger()
+    assert tr.state == dst

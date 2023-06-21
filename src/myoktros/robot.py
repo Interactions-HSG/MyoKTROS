@@ -168,17 +168,8 @@ class RobotModel:
         self.waypoints = dict()
         # inititalize the current step index
         self.current_step = 0
-        self.trigger_map = {
-            Gesture.RELAX: None,
-            Gesture.GRAB: None,
-            Gesture.STRETCH_FINGER: None,
-            Gesture.EXTENSION: None,
-            Gesture.FLEXION: None,
-            Gesture.HORN: None,
-            Gesture.GUN: None,
-            Pose.DOUBLE_TAP: None,
-            Pose.FINGERS_SPREAD: None,
-        }
+        # store the trigger mapping
+        self.trigger_map = dict()
 
     async def _ask_deletion(self):
         await self.speak(f"Confirm Deleting Step {self.current_step - 1}")
@@ -202,7 +193,7 @@ class RobotModel:
         return prev >= 0 and prev in self.waypoints and self.waypoints[prev]
 
     def _has_valid_waypoints(self):
-        return all(self.waypoints.values())
+        return len(self.waypoints) > 0 and all(self.waypoints.values())
 
     async def _move_to_next(self):
         self.current_step += 1

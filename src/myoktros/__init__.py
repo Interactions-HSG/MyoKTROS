@@ -4,9 +4,10 @@ import argparse
 import asyncio
 import logging
 
-from myo.types import ClassifierMode, EMGMode, IMUMode
+from myo.types import ClassifierMode, EMGMode, IMUMode, Pose
 
 from .client import KerasClient, KNNClient
+from .gesture import Gesture
 from .robot import TalkingRobot
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,19 @@ async def main(args: argparse.Namespace):
     robot = TalkingRobot()
     mc.set_robot(robot)
     await robot.setup()
+
+    if args.mode == "keras":
+        robot.trigger_map = {
+            Gesture.RELAX: None,
+            Gesture.GRAB: robot.grabbed,
+            Gesture.STRETCH_FINGER: robot.confirm,
+            Gesture.EXTENSION: robot.play,
+            Gesture.FLEXION: None,
+            Gesture.HORN: None,
+            Gesture.GUN: None,
+            Pose.DOUBLE_TAP: robot.cancel,
+            Pose.FINGERS_SPREAD: None,
+        }
 
     try:
         while True:
