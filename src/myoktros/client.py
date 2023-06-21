@@ -1,15 +1,21 @@
+import asyncio
 import logging
+import pickle
+import time
 from collections import deque
+from pathlib import Path, PurePath
 
 from myo import MyoClient
 from myo.types import (
     ClassifierEvent,
     ClassifierEventType,
     EMGData,
+    EMGMode,
     FVData,
     MotionEvent,
     MotionEventType,
     Pose,
+    VibrationType,
 )
 from transitions.core import MachineError
 
@@ -128,3 +134,143 @@ class KNNClient(MyoClient):
 
     def set_robot(self, robot):
         self.robot = robot
+
+
+class RecorderClient(MyoClient):
+    def __init__(self):
+        super().__init__()
+        self.buf = []
+        self.emg_mode = EMGMode.NONE
+        self.gesture = None
+
+    async def on_emg_data(self, emg: EMGData):
+        line = ",".join(map(str, emg + (self.gesture.value,)))
+        self.buf.append(line)
+
+    async def on_fv_data(self, fvd: FVData):
+        line = ",".join(map(str, (time.time(),) + fvd.fv + (fvd.mask, self.gesture.value)))
+        self.buf.append(line)
+
+    async def record(self, em: EMGMode, seconds: int):
+        self.emg_mode = em
+        await self.setup(emg_mode=em)
+
+        for gesture in Gesture:
+            self.buf = []
+            self.gesture = gesture
+
+            # start
+            await start_countdown(self.vibrate, gesture, em, seconds, "recording")
+            await self.start()
+
+            # record
+            wait_countdown(seconds)
+
+            # stop
+            await self.stop()
+
+            # write to file
+            outpath = self.setup_output(gesture, self.emg_mode)
+            with open(outpath.absolute(), "a") as f:
+                for line in self.buf:
+                    print(line, file=f)
+            logger.info(f"saved the recorded data to {outpath.absolute()}")
+
+    def setup_output(self, g: Gesture, em: EMGMode) -> PurePath:
+        assets = Path.cwd() / "assets"
+        if not assets.exists():
+            assets.mkdir()
+        datadir = assets / "keras_gesture_data"
+        if not datadir.exists():
+            datadir.mkdir()
+        now = time.strftime("%Y%m%d%H%M%S")
+        p = datadir / f"{em.name}-{g.name}-{now}.csv"
+        with open(p.absolute(), "w") as f:
+            if em == EMGMode.SEND_FILT:
+                print("timestamp,fv0,fv1,fv2,fv3,fv4,fv5,fv6,fv7,mask,gesture", file=f)
+            else:
+                print("emg0,emg1,emg2,emg3,emg4,emg5,emg6,emg7,gesture", file=f)
+
+        return p
+
+
+class ValidationClient(MyoClient):
+    def __init__(self):
+        super().__init__()
+        self.buf = []
+        self.model = None
+
+    async def on_emg_data(self, emg: EMGData):
+        pred = self.model.predict(emg)
+        self.buf.append(pred)
+
+    async def on_fv_data(self, fvd: FVData):
+        pred = self.model.predict(fvd)
+        self.buf.append(pred)
+
+    def set_model(self, model):
+        self.model = model
+
+    async def validate(self, em: EMGMode, seconds: int):
+        self.emg_mode = em
+        await self.setup(emg_mode=em)
+
+        results = {}
+        for gesture in Gesture:
+            self.buf = []
+            self.gesture = gesture
+
+            # start
+            await start_countdown(self.vibrate, gesture, em, seconds, "validating")
+            await self.start()
+
+            # record
+            wait_countdown(seconds)
+
+            # stop
+            await self.stop()
+
+            # save the result
+            results[gesture] = self.buf
+
+        # report at the end
+        for g, r in results.items():
+            acc = r.count(g) / len(r) * 100
+            logger.info(f"accuracy for {g.name}: {acc:.2f}%")
+
+        # save the result to a file
+        assets = Path.cwd() / "assets"
+        if not assets.exists():
+            assets.mkdir()
+        now = time.strftime("%Y%m%d%H%M%S")
+        p = assets / f"validation-result-{now}.csv"
+        with p.open('wb') as f:
+            pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+async def start_countdown(vibrate, gesture, em, seconds, action=""):
+    # notify the user and start
+    logger.info("")
+    logger.info(f"start {action}")
+    logger.info("")
+    logger.info(gesture.name)
+    logger.info("")
+    logger.info(f"with {em.name} for {seconds} seconds")
+
+    # count 3
+    for i in range(3, 0, -1):
+        logger.info(f"starting in {i}")
+        await vibrate(VibrationType.SHORT)
+        await asyncio.sleep(1)
+
+    logger.info("go!")
+    await vibrate(VibrationType.MEDIUM)
+
+
+async def wait_countdown(seconds):
+    for i in range(seconds, 0, -1):
+        await asyncio.sleep(1)
+        if i % 5 == 0:
+            logger.info(f"{i} seconds left")
+        else:
+            logger.info(".")
