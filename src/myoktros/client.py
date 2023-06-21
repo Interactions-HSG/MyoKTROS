@@ -164,7 +164,7 @@ class RecorderClient(MyoClient):
             await self.start()
 
             # record
-            wait_countdown(seconds)
+            await wait_countdown(seconds)
 
             # stop
             await self.stop()
@@ -225,7 +225,7 @@ class ValidationClient(MyoClient):
             await self.start()
 
             # record
-            wait_countdown(seconds)
+            await wait_countdown(seconds)
 
             # stop
             await self.stop()
@@ -273,4 +273,4 @@ async def wait_countdown(seconds):
         if i % 5 == 0:
             logger.info(f"{i} seconds left")
         else:
-            logger.info(".")
+            logger.info("|")
