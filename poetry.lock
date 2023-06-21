@@ -12,18 +12,6 @@ files = [
 ]
 
 [[package]]
-name = "aenum"
-version = "3.1.12"
-description = "Advanced Enumerations (compatible with Python's stdlib Enum), NamedTuples, and NamedConstants"
-optional = false
-python-versions = "*"
-files = [
-    {file = "aenum-3.1.12-py2-none-any.whl", hash = "sha256:8d79c9e3ec997220e355b96b322e672fb56a53e61744138ed838407e3a07b610"},
-    {file = "aenum-3.1.12-py3-none-any.whl", hash = "sha256:2d544ef7323c088d68abf9a84b9f3f6db0d516fec685e15678b5f84fdb7b8ba0"},
-    {file = "aenum-3.1.12.tar.gz", hash = "sha256:3e531c91860a81f885f7e6e97d219ae9772cb899580084788935dad7d9742ef0"},
-]
-
-[[package]]
 name = "astunparse"
 version = "1.6.3"
 description = "An AST unparser for Python"
@@ -385,17 +373,16 @@ async-timeout = {version = ">=3.0.0", markers = "python_version < \"3.11\""}
 
 [[package]]
 name = "dl-myo"
-version = "1.0.1"
+version = "1.0.2"
 description = "Yet another MyoConnect alternative without dongles"
 optional = false
 python-versions = ">=3.8,<4.0"
 files = [
-    {file = "dl_myo-1.0.1-py3-none-any.whl", hash = "sha256:33aec85e05a3fcf237a4fd8b24add6493ae4c03d708ba37b729b15fdaf3395e5"},
-    {file = "dl_myo-1.0.1.tar.gz", hash = "sha256:0c49b0f0301610ba10b710740cbe64a925bc24c3c5e0dd61a845565e261988a4"},
+    {file = "dl_myo-1.0.2-py3-none-any.whl", hash = "sha256:8677a57d36c3637d3e3c1142635bccea6f09905c027212a5004cb91c72b573dd"},
+    {file = "dl_myo-1.0.2.tar.gz", hash = "sha256:12469fa1e1b902e26a6f04c8ac12a5d57fa2d83b33c1cd69c0d33abb780fbe34"},
 ]
 
 [package.dependencies]
-aenum = ">=3.1.12,<4.0.0"
 bleak = ">=0.20.2,<0.21.0"
 
 [[package]]
@@ -1471,6 +1458,26 @@ files = [
 ]
 
 [[package]]
+name = "tornado"
+version = "6.3.2"
+description = "Tornado is a Python web framework and asynchronous networking library, originally developed at FriendFeed."
+optional = false
+python-versions = ">= 3.8"
+files = [
+    {file = "tornado-6.3.2-cp38-abi3-macosx_10_9_universal2.whl", hash = "sha256:c367ab6c0393d71171123ca5515c61ff62fe09024fa6bf299cd1339dc9456829"},
+    {file = "tornado-6.3.2-cp38-abi3-macosx_10_9_x86_64.whl", hash = "sha256:b46a6ab20f5c7c1cb949c72c1994a4585d2eaa0be4853f50a03b5031e964fc7c"},
+    {file = "tornado-6.3.2-cp38-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c2de14066c4a38b4ecbbcd55c5cc4b5340eb04f1c5e81da7451ef555859c833f"},
+    {file = "tornado-6.3.2-cp38-abi3-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:05615096845cf50a895026f749195bf0b10b8909f9be672f50b0fe69cba368e4"},
+    {file = "tornado-6.3.2-cp38-abi3-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5b17b1cf5f8354efa3d37c6e28fdfd9c1c1e5122f2cb56dac121ac61baa47cbe"},
+    {file = "tornado-6.3.2-cp38-abi3-musllinux_1_1_aarch64.whl", hash = "sha256:29e71c847a35f6e10ca3b5c2990a52ce38b233019d8e858b755ea6ce4dcdd19d"},
+    {file = "tornado-6.3.2-cp38-abi3-musllinux_1_1_i686.whl", hash = "sha256:834ae7540ad3a83199a8da8f9f2d383e3c3d5130a328889e4cc991acc81e87a0"},
+    {file = "tornado-6.3.2-cp38-abi3-musllinux_1_1_x86_64.whl", hash = "sha256:6a0848f1aea0d196a7c4f6772197cbe2abc4266f836b0aac76947872cd29b411"},
+    {file = "tornado-6.3.2-cp38-abi3-win32.whl", hash = "sha256:7efcbcc30b7c654eb6a8c9c9da787a851c18f8ccd4a5a3a95b05c7accfa068d2"},
+    {file = "tornado-6.3.2-cp38-abi3-win_amd64.whl", hash = "sha256:0c325e66c8123c606eea33084976c832aa4e766b7dff8aedd7587ea44a604cdf"},
+    {file = "tornado-6.3.2.tar.gz", hash = "sha256:4b927c4f19b71e627b13f3db2324e4ae660527143f9e1f2e2fb404f3a187e2ba"},
+]
+
+[[package]]
 name = "transitions"
 version = "0.9.0"
 description = "A lightweight, object-oriented Python state machine implementation with many extensions."
@@ -1487,6 +1494,17 @@ six = "*"
 [package.extras]
 diagrams = ["pygraphviz"]
 test = ["pytest"]
+
+[[package]]
+name = "transitions-gui"
+version = "0.1.0"
+description = "A frontend for the state machine library transitions"
+optional = false
+python-versions = "*"
+files = [
+    {file = "transitions-gui-0.1.0.tar.gz", hash = "sha256:6a3dff6c96a331d7518372fca9980e2db624d705e27626d38358863c8570fd21"},
+    {file = "transitions_gui-0.1.0-py2.py3-none-any.whl", hash = "sha256:1acdc00d40e9b14bfeb1b12471d772491aad2c928048fac8c1e50362759fb9a0"},
+]
 
 [[package]]
 name = "typing-extensions"
@@ -1659,4 +1677,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.11"
-content-hash = "b9b42225bdcc9265a4d53d68fcbcdd5a38d14142a0cfe20fa9a15ecde7d34432"
+content-hash = "a0061b86b4aa26d04405dc17719f14e178ad4742d3c4d10ea1c4651e4bd17cb6"

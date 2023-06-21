@@ -36,5 +36,5 @@ knn = KNeighborsClassifier(n_neighbors=k, metric="euclidean")
 knn.fit(X_train, y_train)
 
 # save the classifier with joblib
-p = Path(__file__).parent.parent / "assets" / "legacy_classifier.pkl"
+p = Path(__file__).parent.parent / "assets" / "knn_classifier.pkl"
 joblib.dump(knn, p.absolute(), protocol=2)

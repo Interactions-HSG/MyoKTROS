@@ -13,7 +13,7 @@ from myo.types import (
 )
 from transitions.core import MachineError
 
-from .gesture import Gesture, GestureClassifierLegacy, GestureClassifierModel
+from .gesture import Gesture, KerasSequentialModel, KNNClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class KerasClient(MyoClient):
     def __init__(self):
         super().__init__()
         logger.info("loading the keras gesture model...")
-        self.model = GestureClassifierModel()
+        self.model = KerasSequentialModel()
         self.robot = None
         self.queue = deque([0] * 10, 10)
         self.last_gesture = None
@@ -60,29 +60,21 @@ class KerasClient(MyoClient):
         try:
             if pred == self.last_gesture:
                 pass
-            elif all(pred == Gesture.RELAX for pred in self.queue):
-                logger.info(Gesture.RELAX)
-            elif all(pred == Gesture.GRAB for pred in self.queue):
-                logger.info(Gesture.GRAB)
-                await self.robot.grabbed()
-            elif all(pred == Gesture.STRETCH_FINGER for pred in self.queue):
-                logger.info(Gesture.STRETCH_FINGER)
-                await self.robot.confirm()
-            elif all(pred == Gesture.EXTENSION for pred in self.queue):
-                logger.info(Gesture.EXTENSION)
-                await self.robot.play_once()
-            elif all(pred == Gesture.FLEXION for pred in self.queue):
-                logger.info(Gesture.EXTENSION)
-            elif all(pred == Gesture.HORN for pred in self.queue):
-                logger.info(Gesture.HORN)
-            elif all(pred == Gesture.GUN for pred in self.queue):
-                logger.info(Gesture.GUN)
-                # await self.robot.delete()
-            else:
+            gesture = None
+            for g in Gesture:
+                if all(pred == g for pred in self.queue):
+                    gesture = pred
+                    break
+            if gesture is None:  # no match
                 return
         except MachineError:
             pass
-        self.last_gesture = pred
+        # invoke trigger
+        logger.info(gesture)
+        trigger = self.robot.trigger_map[gesture]
+        if trigger:
+            await trigger()
+        self.last_gesture = gesture
         self.queue = deque([], self.queue_max_length)
 
     async def on_motion_event(self, me: MotionEvent):
@@ -97,7 +89,7 @@ class KerasClient(MyoClient):
         self.robot = robot
 
 
-class LegacyClient(MyoClient):
+class KNNClient(MyoClient):
     def __init__(self):
         super().__init__()
         self.model = None
@@ -128,11 +120,11 @@ class LegacyClient(MyoClient):
             except MachineError:
                 pass
 
-    def set_gesture_classifier_legacy(self, legacy_n_periods, legacy_n_samples):
-        self.legacy_n_periods = legacy_n_periods
-        self.legacy_n_samples = legacy_n_samples
-        logger.info("loading the legacy gesture classifier...")
-        self.model = GestureClassifierLegacy(legacy_n_periods, legacy_n_samples)
+    def set_knn_classifier(self, n_periods, n_samples):
+        self.n_periods = n_periods
+        self.n_samples = n_samples
+        logger.info("loading the legacy knn classifier...")
+        self.model = KNNClassifier(n_periods, n_samples)
 
     def set_robot(self, robot):
         self.robot = robot

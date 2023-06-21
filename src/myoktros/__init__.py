@@ -4,9 +4,10 @@ import argparse
 import asyncio
 import logging
 
-from myo.types import ClassifierMode, EMGMode, IMUMode
+from myo.types import ClassifierMode, EMGMode, IMUMode, Pose
 
-from .client import KerasClient, LegacyClient
+from .client import KerasClient, KNNClient
+from .gesture import Gesture
 from .robot import TalkingRobot
 
 logger = logging.getLogger(__name__)
@@ -25,10 +26,10 @@ async def main(args: argparse.Namespace):
         )
         await mc.start()
 
-    elif args.mode == "legacy":
+    elif args.mode == "knn":
         while mc is None:
-            mc = await LegacyClient.with_device(args.mac)
-        mc.set_gesture_classifier_legacy(args.legacy_n_periods, args.legacy_n_samples)
+            mc = await KNNClient.with_device(args.mac)
+        mc.set_knn_classifier(args.knn_periods, args.knn_samples)
         await mc.setup(emg_mode=EMGMode.SEND_EMG)
         await mc.start()
 
@@ -38,6 +39,19 @@ async def main(args: argparse.Namespace):
     robot = TalkingRobot()
     mc.set_robot(robot)
     await robot.setup()
+
+    if args.mode == "keras":
+        robot.trigger_map = {
+            Gesture.RELAX: None,
+            Gesture.GRAB: robot.grabbed,
+            Gesture.STRETCH_FINGER: robot.confirm,
+            Gesture.EXTENSION: robot.play,
+            Gesture.FLEXION: None,
+            Gesture.HORN: None,
+            Gesture.GUN: None,
+            Pose.DOUBLE_TAP: robot.cancel,
+            Pose.FINGERS_SPREAD: None,
+        }
 
     try:
         while True:
@@ -59,7 +73,7 @@ def entrypoint():
     )
     parser.add_argument(
         "--mode",
-        choices=["keras", "legacy"],
+        choices=["keras", "knn"],
         default="keras",
         help="mode to select",
     )
@@ -87,13 +101,13 @@ def entrypoint():
         help="specify the mac address for Myo",
     )
     parser.add_argument(
-        "--legacy_n_samples",
-        help="number of samples for the legacy classifier",
+        "--knn_samples",
+        help="number of samples for the knn classifier",
         default=3,
     )
     parser.add_argument(
-        "--legacy_n_periods",
-        help="number of sampling periods for the legacy classifier",
+        "--knn_periods",
+        help="number of sampling periods for the knn classifier",
         default=10,
     )
     parser.add_argument("-p", "--port", help="the port for the ROS server", default=8765)
