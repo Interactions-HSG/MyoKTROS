@@ -2,10 +2,10 @@ import argparse
 import asyncio
 import logging
 
-from myo.types import ClassifierMode, EMGMode, IMUMode, Pose
+from myo.types import Pose
 
-from .client import KerasClient, KNNClient, RecorderClient, ValidationClient
-from .gesture import Gesture, KerasSequentialModel
+from .client import GestureClient, RecorderClient, EvaluaterClient
+from .gesture import Gesture, KerasSequentialModel, KNNClassifier
 from .robot import TalkingRobot
 
 logger = logging.getLogger(__name__)
@@ -13,23 +13,19 @@ logger = logging.getLogger(__name__)
 
 class Command:  # no cov
     @classmethod
-    async def keras(cls, args: argparse.Namespace):
+    async def run(cls, args: argparse.Namespace):
+        logger.info('looking for a Myo device...')
         c = None
         while c is None:
-            c = await KerasClient.with_device(args.mac)
-        c.set_queue_length(args.queue_length)  # 1 gesture/sec
-        await c.setup(
-            classifier_mode=ClassifierMode.ENABLED,
-            emg_mode=EMGMode.SEND_FILT,
-            imu_mode=IMUMode.SEND_EVENTS,
-        )
+            c = await GestureClient.with_device(args.mac)
+
+        await c.configure(args)
         await c.start()
 
         robot = TalkingRobot()
-        c.set_robot(robot)
         await robot.setup()
 
-        robot.trigger_map = {
+        c.trigger_map = {
             Gesture.RELAX: None,
             Gesture.GRAB: robot.grabbed,
             Gesture.STRETCH_FINGER: None,
@@ -54,48 +50,29 @@ class Command:  # no cov
             await c.sleep()
 
     @classmethod
-    async def knn(cls, args: argparse.Namespace):
-        c = None
-        while c is None:
-            c = await KNNClient.with_device(args.mac)
-        c.set_knn_classifier(args.periods, args.samples)
-        await c.setup(emg_mode=EMGMode.SEND_EMG)
-        await c.start()
-
-        robot = TalkingRobot()
-        c.set_robot(robot)
-        await robot.setup()
-
-        try:
-            while True:
-                await asyncio.sleep(60)
-        except asyncio.exceptions.CancelledError:
-            pass
-        except KeyboardInterrupt:
-            pass
-        finally:
-            logger.info("closing the session...")
-            await c.stop()
-            await c.sleep()
-
-    @classmethod
-    async def record(cls, args: argparse.Namespace):
+    async def calibrate(cls, args: argparse.Namespace):
+        logger.info('looking for a Myo device...')
         rc = None
         while rc is None:
             rc = await RecorderClient.with_device(args.mac)
-        await rc.record(EMGMode(args.emg_mode), args.duration)
+        await rc.record(args)
+        await cls.train(args)
         exit(0)
 
     @classmethod
     async def train(cls, args: argparse.Namespace):
-        KerasSequentialModel.fit(args.data_path, args.epochs)
+        if args.model == 'keras':
+            KerasSequentialModel.fit(args)
+        elif args.model == 'knn':
+            KNNClassifier.fit(args)
         exit(0)
 
     @classmethod
-    async def validate(cls, args: argparse.Namespace):
-        vc = None
-        while vc is None:
-            vc = await ValidationClient.with_device(args.mac)
-        vc.set_model(KerasSequentialModel())
-        await vc.validate(EMGMode(args.emg_mode), args.duration)
+    async def evaluate(cls, args: argparse.Namespace):
+        logger.info('looking for a Myo device...')
+        ec = None
+        while ec is None:
+            ec = await EvaluaterClient.with_device(args.mac)
+        await ec.configure(args)
+        await ec.evaluate(args)
         exit(0)
