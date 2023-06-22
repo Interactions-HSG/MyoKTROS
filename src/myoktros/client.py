@@ -8,15 +8,10 @@ from pathlib import Path, PurePath
 
 from myo import MyoClient
 from myo.types import (
-    ClassifierEvent,
     ClassifierEventType,
     ClassifierMode,
-    EMGData,
     EMGMode,
-    FVData,
-    IMUData,
     IMUMode,
-    MotionEvent,
     MotionEventType,
     Pose,
     VibrationType,
@@ -80,7 +75,7 @@ class GestureClient(MyoClient):
         self.n_periods = args.n_periods
         self.queue = deque([], self.n_periods * self.n_samples)
 
-    async def on_classifier_event(self, ce: ClassifierEvent):
+    async def on_classifier_event(self, ce):
         logger.info(ce.t)
         # TODO: do something when the arm is unsynced?
         if ce.t == ClassifierEventType.POSE:
@@ -109,7 +104,7 @@ class GestureClient(MyoClient):
     async def on_emg_data_aggregated(self, emg):
         await self.on_emg(emg)
 
-    async def on_fv_data(self, fvd: FVData):
+    async def on_fv_data(self, fvd):
         await self.on_emg(fvd.fv)
 
     async def on_gesture(self, gesture: Gesture):
@@ -129,11 +124,11 @@ class GestureClient(MyoClient):
             except MachineError:
                 pass
 
-    async def on_imu_data(self, imu: IMUData):
+    async def on_imu_data(self, imu):
         # TODO: something can be done with IMU as well
         pass
 
-    async def on_motion_event(self, me: MotionEvent):
+    async def on_motion_event(self, me):
         if me.t == MotionEventType.TAP:
             logger.info(f"{MotionEventType.TAP}: {me.tap_count} {me.tap_direction}")
 
@@ -151,7 +146,7 @@ class RecorderClient(MyoClient):
         line = ",".join(map(str, (time.time(),) + emg + (self.gesture.value,)))
         self.buf.append(line)
 
-    async def on_fv_data(self, fvd: FVData):
+    async def on_fv_data(self, fvd):
         line = ",".join(map(str, (time.time(),) + fvd.fv + (fvd.mask, self.gesture.value)))
         self.buf.append(line)
 
