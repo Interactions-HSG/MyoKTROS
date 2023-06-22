@@ -85,7 +85,7 @@ def entrypoint():  # no cov
         "--duration",
         help="seconds to record each gesture for recoding",
         type=int,
-        default=5,
+        default=10,
     )
     calibrate_mode.add_argument(
         "--emg-mode",
@@ -98,13 +98,19 @@ def entrypoint():  # no cov
         "--epochs",
         help="epochs for fitting the keras model",
         type=int,
-        default=42,
+        default=1000,
     )
     calibrate_mode.add_argument(
         "--k",
         help="k for fitting the knn model",
         type=int,
         default=15,
+    )
+    calibrate_mode.add_argument(
+        "--learning_rate",
+        help="learning_rate for fitting the keras model",
+        type=float,
+        default=0.0001,
     )
     calibrate_mode.add_argument(
         "--mac",
@@ -119,7 +125,7 @@ def entrypoint():  # no cov
     calibrate_mode.add_argument(
         "--n-samples",
         help="number of samples for 1 period",
-        default=3,
+        default=10,
     )
     calibrate_mode.add_argument(
         "-v",
@@ -152,7 +158,19 @@ def entrypoint():  # no cov
         "--epochs",
         help="epochs for fitting the model",
         type=int,
-        default=30,
+        default=1000,
+    )
+    train_mode.add_argument(
+        "--k",
+        help="k for fitting the knn model",
+        type=int,
+        default=15,
+    )
+    train_mode.add_argument(
+        "--learning_rate",
+        help="learning_rate for fitting the keras model",
+        type=float,
+        default=0.0001,
     )
     train_mode.add_argument(
         "--model",
@@ -163,7 +181,7 @@ def entrypoint():  # no cov
     train_mode.add_argument(
         "--n-samples",
         help="number of samples for 1 period",
-        default=3,
+        default=10,
         type=int,
     )
     train_mode.add_argument(
@@ -206,7 +224,7 @@ def entrypoint():  # no cov
     evaluate_mode.add_argument(
         "--n-samples",
         help="number of samples for 1 period",
-        default=3,
+        default=10,
     )
     evaluate_mode.add_argument(
         "--n-periods",

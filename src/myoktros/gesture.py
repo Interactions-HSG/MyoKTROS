@@ -12,18 +12,17 @@ from myo.types import EMGMode
 from sklearn.neighbors import KNeighborsClassifier
 
 logger = logging.getLogger(__name__)
-FV_DATA_N_SENSORS = 8
-EMG_DATA_N_SENSORS = 16
+
+N_SENSORS = 8
 
 
 class Gesture(Enum):
     RELAX = 0
     GRAB = 1
     STRETCH_FINGER = 2
-    FLEXION = 3
-    HORN = 4
-    # EXTENSION = 5
-    # GUN = 6
+    EXTENSION = 3
+    THUMBS_UP = 4
+    HORN = 5
 
 
 class GestureModel:
@@ -32,13 +31,6 @@ class GestureModel:
         self.emg_mode = em
         self.n_periods = n_periods
         self.n_samples = n_samples
-        if em == EMGMode.SEND_FILT:
-            self.n_sensors = FV_DATA_N_SENSORS
-        elif em in [EMGMode.SEND_EMG, EMGMode.SEND_RAW]:
-            self.n_sensors = EMG_DATA_N_SENSORS
-        else:
-            logger.error(f"invalid EMGMode: {em}")
-            exit(1)
 
     def extract_features_from_queue(self, queue: list):
         assert len(queue) == self.n_periods * self.n_samples
@@ -46,11 +38,7 @@ class GestureModel:
         for p in range(self.n_periods):
             buf = []
             for s in range(self.n_samples):  # for each n_samples
-                if self.emg_mode == EMGMode.SEND_FILT:
-                    data = queue[p * self.n_samples + s].fv
-                else:
-                    emg_data = queue[p * self.n_samples + s]
-                    data = emg_data.sample1 + emg_data.sample2
+                data = queue[p * self.n_samples + s]
                 buf.append(data)
 
             npbuf = np.array(buf)
@@ -74,13 +62,9 @@ class GestureModel:
             exit(1)
         df = pd.concat(map(pd.read_csv, data_files), ignore_index=True)
 
-        # save the n_sensors (default to the pseudo 16 sensors)
-        n_sensors = EMG_DATA_N_SENSORS
-
         if em == EMGMode.SEND_FILT:
             # drop the mask for FVData
             _ = df.pop('mask')
-            n_sensors = FV_DATA_N_SENSORS
 
         # drop the timestamp
         _ = df.pop('timestamp')
@@ -107,8 +91,8 @@ class GestureModel:
 
         # fmt: off
         columns = [
-            [f"data{i}" for i in range(n_sensors)]
-            + [f"std{i}" for i in range(n_sensors)]
+            [f"data{i}" for i in range(N_SENSORS)]
+            + [f"std{i}" for i in range(N_SENSORS)]
             + ['gesture',],
         ]
         # fmt: on
@@ -128,6 +112,7 @@ class KerasSequentialModel(GestureModel):
     def fit(cls, args: argparse.Namespace):
         em = EMGMode(args.emg_mode)
         epochs = args.epochs
+        learning_rate = args.learning_rate
         n_samples = args.n_samples
 
         # read the data files
@@ -155,7 +140,7 @@ class KerasSequentialModel(GestureModel):
         )
         model.compile(
             loss=tf.keras.losses.SparseCategoricalCrossentropy(),
-            optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+            optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
         )
         model.fit(
             features,
@@ -191,7 +176,7 @@ class KNNClassifier(GestureModel):
         features, labels = cls.read_data(args)
 
         model = KNeighborsClassifier(n_neighbors=args.k, metric="euclidean")
-        model.fit(features, labels)
+        model.fit(features, np.ravel(labels))
 
         # save the classifier with joblib
         model_path = (

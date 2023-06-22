@@ -28,17 +28,11 @@ from .gesture import Gesture, KerasSequentialModel, KNNClassifier
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_TRIGGER_MAP = {
-    Gesture.RELAX: None,
-    Gesture.GRAB: None,
-    Gesture.STRETCH_FINGER: None,
-    Gesture.FLEXION: None,
-    Gesture.HORN: None,
-    # Gesture.EXTENSION: None,
-    # Gesture.GUN: None,
-    Pose.DOUBLE_TAP: None,
-    Pose.FINGERS_SPREAD: None,
-}
+DEFAULT_TRIGGER_MAP = {}
+for g in Gesture:
+    DEFAULT_TRIGGER_MAP[g] = None
+for p in Pose:
+    DEFAULT_TRIGGER_MAP[p] = None
 
 
 class GestureClient(MyoClient):
@@ -46,7 +40,6 @@ class GestureClient(MyoClient):
         super().__init__()
         # the following instance attributes need to be set by configure()
         self.last_gesture = None
-        self.last_pose = None
         self.model = None
         self.n_samples = None
         self.n_periods = None
@@ -73,15 +66,16 @@ class GestureClient(MyoClient):
             exit(1)
 
         # setup the MyoClient
+        em = EMGMode(args.emg_mode)
         await self.setup(
             classifier_mode=ClassifierMode.ENABLED,  # get ClassifierEvent
             emg_mode=EMGMode(args.emg_mode),  # configure the EMGMode
             imu_mode=IMUMode.SEND_ALL,  # get everything about IMU
         )
+        self.aggregate_emg = True  # always enable EMGData aggregation
 
         # set the initial attributes
         self.last_gesture = Gesture.RELAX
-        self.last_pose = Pose.REST
         self.n_samples = args.n_samples
         self.n_periods = args.n_periods
         self.queue = deque([], self.n_periods * self.n_samples)
@@ -90,31 +84,16 @@ class GestureClient(MyoClient):
         logger.info(ce.t)
         # TODO: do something when the arm is unsynced?
         if ce.t == ClassifierEventType.POSE:
-            logger.info(ce.pose)
-            self.last_pose = ce.pose
-            try:
-                if ce.pose == Pose.REST:
+            trigger = self.trigger_map[ce.pose]
+            if trigger:
+                try:
+                    await trigger()
+                except MachineError:
                     pass
-                elif ce.pose == Pose.FIST:
-                    pass
-                elif ce.pose == Pose.WAVE_IN:
-                    pass
-                elif ce.pose == Pose.WAVE_OUT:
-                    pass
-                elif ce.pose == Pose.FINGERS_SPREAD:
-                    pass
-                elif ce.pose == Pose.DOUBLE_TAP:
-                    pass
-            except MachineError:
-                pass
 
-    async def on_emg_data(self, data: EMGData):
-        # perhpas exactly the same as on_fv_data()
-        pass
-
-    async def on_fv_data(self, fvd: FVData):
+    async def on_emg(self, data):
         # wait until the queue to fill up
-        self.queue.append(fvd)
+        self.queue.append(data)
         if len(self.queue) < self.n_periods * self.n_samples:
             return
 
@@ -126,6 +105,12 @@ class GestureClient(MyoClient):
 
         # clear the queue
         self.queue = deque([], self.n_periods * self.n_samples)
+
+    async def on_emg_data_aggregated(self, emg):
+        await self.on_emg(emg)
+
+    async def on_fv_data(self, fvd: FVData):
+        await self.on_emg(fvd.fv)
 
     async def on_gesture(self, gesture: Gesture):
         # skip if the same gesture
@@ -145,7 +130,7 @@ class GestureClient(MyoClient):
                 pass
 
     async def on_imu_data(self, imu: IMUData):
-        # perhpas exactly the same as on_fv_data()
+        # TODO: something can be done with IMU as well
         pass
 
     async def on_motion_event(self, me: MotionEvent):
@@ -162,8 +147,8 @@ class RecorderClient(MyoClient):
         self.buf = []
         self.gesture = None
 
-    async def on_emg_data(self, emg: EMGData):
-        line = ",".join(map(str, (time.time(),) + emg.sample1 + emg.sample2 + (self.gesture.value,)))
+    async def on_emg_data_aggregated(self, emg):
+        line = ",".join(map(str, (time.time(),) + emg + (self.gesture.value,)))
         self.buf.append(line)
 
     async def on_fv_data(self, fvd: FVData):
@@ -174,6 +159,7 @@ class RecorderClient(MyoClient):
         # setup myo
         em = EMGMode(args.emg_mode)
         await self.setup(emg_mode=em)
+        self.aggregate_emg = True  # always enable EMGData aggregation
 
         # prepare the datapath
         data_path = Path(args.data)
@@ -198,6 +184,7 @@ class RecorderClient(MyoClient):
             self.gesture = gesture
 
             # start
+            # TODO: perhaps wait for the user's DOUBLE_TAP?
             await start_countdown(self.vibrate, gesture, em, args.duration, "recording")
             await self.start()
 
@@ -222,7 +209,7 @@ class RecorderClient(MyoClient):
                 print("timestamp,fv0,fv1,fv2,fv3,fv4,fv5,fv6,fv7,mask,gesture", file=f)
             else:
                 print(
-                    "timestamp,emg1-0,emg1-1,emg1-2,emg1-3,emg1-4,emg1-5,emg1-6,emg1-7,emg2-0,emg2-1,emg2-2,emg2-3,emg2-4,emg2-5,emg2-6,emg2-7,gesture",  # noqa
+                    "timestamp,emg0,emg1,emg2,emg3,emg4,emg5,emg6,emg7,gesture",  # noqa
                     file=f,
                 )
 
@@ -281,8 +268,8 @@ async def start_countdown(vibrate, gesture, em, seconds, action=""):
     logger.info("")
     logger.info(f"with {em.name} for {seconds} seconds")
 
-    # count 3
-    for i in range(3, 0, -1):
+    # count 5
+    for i in range(5, 0, -1):
         logger.info(f"starting in {i}")
         await vibrate(VibrationType.SHORT)
         await asyncio.sleep(1)

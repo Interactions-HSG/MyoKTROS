@@ -4,7 +4,7 @@ import logging
 
 from myo.types import Pose
 
-from .client import GestureClient, RecorderClient, EvaluaterClient
+from .client import EvaluaterClient, GestureClient, RecorderClient, DEFAULT_TRIGGER_MAP
 from .gesture import Gesture, KerasSequentialModel, KNNClassifier
 from .robot import TalkingRobot
 
@@ -22,20 +22,17 @@ class Command:  # no cov
         await c.configure(args)
         await c.start()
 
+        # TODO: configure the robot with args
         robot = TalkingRobot()
         await robot.setup()
 
-        c.trigger_map = {
-            Gesture.RELAX: None,
-            Gesture.GRAB: robot.grabbed,
-            Gesture.STRETCH_FINGER: None,
-            Gesture.FLEXION: None,
-            Gesture.HORN: robot.play,
-            # Gesture.EXTENSION: None,
-            # Gesture.GUN: None,
-            Pose.DOUBLE_TAP: robot.confirm,
-            Pose.FINGERS_SPREAD: robot.cancel,
-        }
+        # register the triggers
+        tm = DEFAULT_TRIGGER_MAP
+        tm[Gesture.GRAB] = robot.grabbed
+        tm[Gesture.THUMBS_UP] = robot.play
+        tm[Gesture.HORN] = robot.cancel
+        tm[Pose.DOUBLE_TAP] = robot.confirm
+        c.trigger_map = tm
 
         try:
             while True:
