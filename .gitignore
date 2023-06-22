@@ -133,3 +133,4 @@ dmypy.json
 *.pkl
 *.csv
 assets/
+data/

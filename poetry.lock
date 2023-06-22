@@ -373,13 +373,13 @@ async-timeout = {version = ">=3.0.0", markers = "python_version < \"3.11\""}
 
 [[package]]
 name = "dl-myo"
-version = "1.0.2"
+version = "1.0.3"
 description = "Yet another MyoConnect alternative without dongles"
 optional = false
 python-versions = ">=3.8,<4.0"
 files = [
-    {file = "dl_myo-1.0.2-py3-none-any.whl", hash = "sha256:8677a57d36c3637d3e3c1142635bccea6f09905c027212a5004cb91c72b573dd"},
-    {file = "dl_myo-1.0.2.tar.gz", hash = "sha256:12469fa1e1b902e26a6f04c8ac12a5d57fa2d83b33c1cd69c0d33abb780fbe34"},
+    {file = "dl_myo-1.0.3-py3-none-any.whl", hash = "sha256:ba2aced2027bcee663e44a87a81a957b74228367a295f3ae80f8a2e423338b84"},
+    {file = "dl_myo-1.0.3.tar.gz", hash = "sha256:60712e558879189028dd6a20a5c764c07205a6507d68bb618b305c7bf030ce5c"},
 ]
 
 [package.dependencies]
@@ -1677,4 +1677,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.11"
-content-hash = "a0061b86b4aa26d04405dc17719f14e178ad4742d3c4d10ea1c4651e4bd17cb6"
+content-hash = "3140ee62c3db5554d38c80ccf5db976593d469865ecfc117c16284bd33e6a079"

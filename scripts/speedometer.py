@@ -7,10 +7,7 @@ import time
 
 from myo import MyoClient
 from myo.types import (
-    EMGData,
     EMGMode,
-    FVData,
-    IMUData,
     IMUMode,
     VibrationType,
 )
@@ -28,18 +25,16 @@ class MeasurementClient(MyoClient):
         self.emg_buf = []
         self.fv_buf = []
         self.imu_buf = []
-        self.ce_buf = []
-        self.me_buf = []
 
-    async def on_emg_data(self, emg: EMGData):
+    async def on_emg_data_aggregate(self, emg):
         record = (time.time(),) + emg
         self.emg_buf.append(record)
 
-    async def on_fv_data(self, fvd: FVData):
+    async def on_fv_data(self, fvd):
         record = (time.time(),) + fvd.fv
         self.fv_buf.append(record)
 
-    async def on_imu_data(self, imu: IMUData):
+    async def on_imu_data(self, imu):
         record = (time.time(), imu)
         self.imu_buf.append(record)
 
@@ -54,6 +49,7 @@ async def main(args: argparse.Namespace):
     imu_mode = IMUMode(args.imu_mode)
 
     await mc.setup(emg_mode=emg_mode, imu_mode=imu_mode)
+    mc.aggregate_emg = True  # enable emg aggregation
     logger.info("starting in 3")
     await mc.vibrate(VibrationType.SHORT)
     await asyncio.sleep(1)
