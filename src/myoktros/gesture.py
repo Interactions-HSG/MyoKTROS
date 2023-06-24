@@ -37,7 +37,7 @@ class GestureModel:
         self.n_samples = n_samples
 
     @classmethod
-    def read_data(cls, data_path: Path, em: EMGMode, n_samples: int):
+    def read_data(cls, data_path: PurePath, em: EMGMode, n_samples: int):
         # read the data files
         gesture_names = [g.name for g in Gesture]
         data_files = sorted(
@@ -93,7 +93,7 @@ class GestureModel:
 
 
 class KerasSequentialModel(GestureModel):
-    def __init__(self, assets_path: Path, em: EMGMode, n_samples: int, model_path: PurePath):
+    def __init__(self, assets_path: PurePath, em: EMGMode, n_samples: int):
         super().__init__('keras', em, n_samples)
         # check if the model exists
         model_path = assets_path / f"keras-{em.name}-{n_samples}-samples-model"
@@ -198,7 +198,7 @@ class KerasSequentialModel(GestureModel):
 
 
 class KNNClassifier(GestureModel):
-    def __init__(self, assets_path: Path, em: EMGMode, n_samples, model_path: PurePath):
+    def __init__(self, assets_path: PurePath, em: EMGMode, n_samples):
         super().__init__('knn', em, n_samples)
         # check if the model exists
         model_path = assets_path / f"knn-{em.name}-{n_samples}-samples-model.pkl"

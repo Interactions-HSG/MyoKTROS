@@ -134,3 +134,4 @@ dmypy.json
 *.csv
 assets/
 data/
+node_modules/
