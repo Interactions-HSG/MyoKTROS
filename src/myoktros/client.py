@@ -32,50 +32,52 @@ for p in Pose:
 class GestureClient(MyoClient):
     def __init__(self):
         super().__init__()
+        # always enable EMGData aggregation
+        self.aggregate_emg = True
         # the following instance attributes need to be set by configure()
         self.last_gesture = None
+        self.emg_mode = None
         self.model = None
         self.n_samples = None
         self.queue = None
         self.trigger_map = DEFAULT_TRIGGER_MAP
 
     async def configure(self, args: argparse.Namespace):
+        # set the initial attributes
+        self.emg_mode = EMGMode(args.emg_mode)
+        self.last_gesture = Gesture(0)
+        self.n_samples = args.n_samples
+        self.queue = deque([], self.n_samples)
+
         # check if the model exists
         assets = Path(__file__).parent.parent.parent / "assets"
-        ext = ".pkl" if args.model == 'knn' else ""
-        em = EMGMode(args.emg_mode)
-        model_path = assets / f"{args.model}-{em.name}-{args.n_samples}-samples-model{ext}"
+        ext = ".pkl" if args.model_type == 'knn' else ""
+        model_path = assets / f"{args.model_type}-{self.emg_mode.name}-{args.n_samples}-samples-model{ext}"
         if not model_path.exists():
             logger.error(f"model: {model_path.absolute()} not found")
             exit(1)
 
         # load the model
-        if args.model == 'keras':
-            self.model = KerasSequentialModel(em, args.n_samples, model_path)
-        elif args.model == 'knn':
-            self.model = KNNClassifier(em, args.n_samples, model_path)
+        if args.model_type == 'keras':
+            self.model = KerasSequentialModel(self.emg_mode, args.n_samples, model_path)
+        elif args.model_type == 'knn':
+            self.model = KNNClassifier(self.emg_mode, args.n_samples, model_path)
         else:
-            logger.error(f"invalid model: {args.model}")
+            logger.error(f"invalid model: {args.model_type}")
             exit(1)
 
         # setup the MyoClient
-        em = EMGMode(args.emg_mode)
         await self.setup(
             classifier_mode=ClassifierMode.ENABLED,  # get ClassifierEvent
-            emg_mode=EMGMode(args.emg_mode),  # configure the EMGMode
+            emg_mode=self.emg_mode,  # configure the EMGMode
             imu_mode=IMUMode.SEND_ALL,  # get everything about IMU
         )
-        self.aggregate_emg = True  # always enable EMGData aggregation
-
-        # set the initial attributes
-        self.last_gesture = Gesture.RELAX
-        self.n_samples = args.n_samples
-        self.queue = deque([], self.n_samples)
 
     async def on_classifier_event(self, ce):
         logger.info(ce.t)
         # TODO: do something when the arm is unsynced?
         if ce.t == ClassifierEventType.POSE:
+            logger.info(ce.pose)
             trigger = self.trigger_map[ce.pose]
             if trigger:
                 try:
@@ -136,6 +138,9 @@ class GestureClient(MyoClient):
 class RecorderClient(MyoClient):
     def __init__(self):
         super().__init__()
+        # always enable EMGData aggregation
+        self.aggregate_emg = True
+        # used by callbacks
         self.buf = []
         self.gesture = None
 
@@ -151,7 +156,6 @@ class RecorderClient(MyoClient):
         # setup myo
         em = EMGMode(args.emg_mode)
         await self.setup(emg_mode=em)
-        self.aggregate_emg = True  # always enable EMGData aggregation
 
         # prepare the datapath
         data_path = Path(args.data)
@@ -211,38 +215,15 @@ class RecorderClient(MyoClient):
 class EvaluaterClient(GestureClient):
     def __init__(self):
         super().__init__()
+        self.last_gesture = Gesture(0)
 
     async def on_gesture(self, g: Gesture):
-        logger.info(g)
+        if self.last_gesture != g:
+            self.last_gesture = g
+            logger.info(g)
 
     # async def on_emg(self, data):
     #     self.buf.append(data)
-
-    async def evaluate(self, args: argparse.Namespace):
-        duration = args.duration
-        em = EMGMode(args.emg_mode)
-
-        for gesture in Gesture:
-            self.buf = []
-            self.gesture = gesture
-
-            # start
-            await start_countdown(self.vibrate, gesture, em, duration, "validating")
-            await self.start()
-
-            # record
-            await wait_countdown(duration)
-
-            # stop
-            await self.stop()
-
-            # test_features = []
-            # for i in range(0, len(self.buf), n_samples):
-            #    feat = self.buf[i : i + n_samples]
-            #    test_features.append(feat)
-            # test_features = pd.DataFrame(test_features)
-            # test_labels = pd.Series(np.full(len(test_features), gesture.value))
-            # self.model.evaluate(test_features, test_labels)
 
 
 async def start_countdown(vibrate, gesture, em, seconds, action=""):

@@ -12,10 +12,12 @@ from myo.types import EMGMode
 from sklearn.neighbors import KNeighborsClassifier
 
 logger = logging.getLogger(__name__)
+np.set_printoptions(precision=3, suppress=True)
+
 
 BATCH_SIZE = 100
 EPOCHS = 1000
-LEARNING_RATE = 1e-4
+LEARNING_RATE = 1e-3
 N_SENSORS = 8
 
 
@@ -39,11 +41,14 @@ class GestureModel:
         em = EMGMode(args.emg_mode)
         n_samples = args.n_samples
 
-        # make numpy values easier to read.
-        np.set_printoptions(precision=3, suppress=True)
-
         # read the data files
-        data_files = list(data_path.glob(f"*-{em.name}-*.csv"))
+        gesture_names = [g.name for g in Gesture]
+        data_files = sorted(
+            filter(
+                lambda f: any([gn in f.name for gn in gesture_names]),
+                data_path.glob(f"*-{em.name}-*.csv"),
+            )
+        )
         if len(data_files) == 0:
             logger.error(f"no data files found in {data_path.absolute()}")
             exit(1)
