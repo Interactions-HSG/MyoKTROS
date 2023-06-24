@@ -102,7 +102,7 @@ license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.11"
+python = ">=3.10"
 dl-myo = ">=1.0.3"
 joblib = "^1.2.0"
 numpy = "^1.24.3"
