@@ -1,8 +1,9 @@
 import argparse
 import asyncio
 import logging
+from pathlib import Path
 
-from myo.types import Pose
+from myo.types import EMGMode, Pose
 
 from .client import EvaluaterClient, GestureClient, RecorderClient, DEFAULT_TRIGGER_MAP
 from .gesture import Gesture, KerasSequentialModel, KNNClassifier
@@ -70,10 +71,26 @@ class Command:  # no cov
 
     @classmethod
     async def train(cls, args: argparse.Namespace):
+        assets = Path(__file__).parent.parent.parent / "assets"
+        data_path = Path(args.data)
+        emg_mode = EMGMode(args.emg_mode)
         if args.model_type == 'keras':
-            KerasSequentialModel.fit(args)
+            KerasSequentialModel.fit(
+                args.arm_dominance,
+                assets,
+                data_path,
+                emg_mode,
+                args.n_samples,
+            )
         elif args.model_type == 'knn':
-            KNNClassifier.fit(args)
+            KNNClassifier.fit(
+                args.arm_dominance,
+                assets,
+                data_path,
+                emg_mode,
+                args.k,
+                args.n_samples,
+            )
 
     @classmethod
     async def test(cls, args: argparse.Namespace):

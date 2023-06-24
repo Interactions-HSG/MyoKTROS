@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-import argparse
 import logging
 from enum import Enum
-from pathlib import Path, PurePath
+from pathlib import PurePath
 
 import joblib
 import numpy as np
@@ -10,6 +9,7 @@ import pandas as pd
 import tensorflow as tf
 from myo.types import EMGMode
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import train_test_split
 
 logger = logging.getLogger(__name__)
 np.set_printoptions(precision=3, suppress=True)
@@ -111,10 +111,10 @@ class GestureModel:
 
 
 class KerasSequentialModel(GestureModel):
-    def __init__(self, assets_path: PurePath, arm_dominance: str, emg_mode: EMGMode, n_samples: int):
+    def __init__(self, arm_dominance: str, assets: PurePath, emg_mode: EMGMode, n_samples: int):
         super().__init__('keras', arm_dominance, emg_mode, n_samples)
         # check if the model exists
-        model_path = assets_path / f"keras-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model"
+        model_path = assets / f"keras-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model"
         if not model_path.exists():
             logger.error(f"model: {model_path.absolute()} not found")
             exit(1)
@@ -125,13 +125,7 @@ class KerasSequentialModel(GestureModel):
         self.model.evaluate(test_features, test_labels)
 
     @classmethod
-    def fit(cls, args: argparse.Namespace):
-        arm_dominance = args.arm_dominance
-        assets = Path(__file__).parent.parent.parent / "assets"
-        data_path = Path(args.data)
-        emg_mode = EMGMode(args.emg_mode)
-        n_samples = args.n_samples
-
+    def fit(cls, arm_dominance: str, assets: PurePath, data_path: PurePath, emg_mode: EMGMode, n_samples: int):
         # read the data files
         features = cls.read_data(
             data_path,
@@ -141,11 +135,13 @@ class KerasSequentialModel(GestureModel):
         )
 
         # reserve 10% samples for validation
-        val_features = features.groupby('gesture').apply(lambda x: x.sample(frac=0.1)).reset_index(drop=True)
+        x_val = features.groupby('gesture').apply(lambda x: x.sample(frac=0.1)).reset_index(drop=True)
 
         # split the data into features and labels
         labels = features.pop('gesture')
-        val_labels = val_features.pop('gesture')
+        y_val = x_val.pop('gesture')
+
+        x_train, x_test, y_train, y_test = train_test_split(features, labels, test_size=0.33, random_state=42)
 
         # input_shape: N_SENSORS*n_samples
         shape = features.shape[1]
@@ -153,28 +149,28 @@ class KerasSequentialModel(GestureModel):
 
         # keras.Sequential
         normalize = tf.keras.layers.Normalization()
-        normalize.adapt(features)
+        normalize.adapt(x_train)
         model = tf.keras.Sequential(
             [
                 normalize,
                 # 1st hidden layer
-                tf.keras.layers.Dense(200, activation="sigmoid", input_shape=(shape,)),
+                tf.keras.layers.Dense(200, activation="relu", input_shape=(shape,)),
                 # 2nd hidden layer
-                tf.keras.layers.Dense(100, activation="sigmoid"),
+                tf.keras.layers.Dense(100, activation="relu"),
                 # 3rd hidden layer
-                tf.keras.layers.Dense(50, activation="sigmoid"),
+                tf.keras.layers.Dense(50, activation="relu"),
                 # output layer, N gestures
                 tf.keras.layers.Dense(len(Gesture), activation="softmax", name="prediction"),
             ]
         )
         model.compile(
             # optimizer=tf.keras.optimizers.RMSprop(),  # Optimizer
-            # optimizer="rmsprop",
-            optimizer=tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE),
-            loss=tf.keras.losses.SparseCategoricalCrossentropy(),
-            # loss="sparse_categorical_crossentropy",
-            metrics=[tf.keras.metrics.SparseCategoricalAccuracy()],
-            # metrics=["sparse_categorical_accuracy"],
+            optimizer="rmsprop",
+            # optimizer=tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE),
+            # loss=tf.keras.losses.SparseCategoricalCrossentropy(),
+            loss="sparse_categorical_crossentropy",
+            # metrics=[tf.keras.metrics.SparseCategoricalAccuracy()],
+            metrics=["sparse_categorical_accuracy"],
         )
         # save best weights to avoid overfitting
         weight_path = assets / f"keras-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model" / "weights.h5"
@@ -188,23 +184,23 @@ class KerasSequentialModel(GestureModel):
             monitor='val_loss',
             patience=5,
         )
-        history = model.fit(
+        h = model.fit(  # noqa: F841
             features,
             labels,
             batch_size=BATCH_SIZE,
             callbacks=[early_stopping, model_checkpoint],
             epochs=EPOCHS,
             shuffle=True,
-            validation_data=(val_features, val_labels),
+            validation_data=(x_val, y_val),
             validation_split=0.3,
         )
-        _ = history
+        # logger.info(f"history: {h.history}")
 
         # load best weights
         model.load_weights(weight_path)
 
         # evaluate on the validation sets
-        model.evaluate(val_features, val_labels)
+        model.evaluate(x_test, y_test)
 
         # save the model
         model_path = assets / f"keras-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model"
@@ -212,17 +208,16 @@ class KerasSequentialModel(GestureModel):
         logger.info(f"new model saved at {model_path.absolute()}")
 
     def predict(self, queue: list):
-        feat = np.array(queue).reshape(1, -1)
+        feat = np.array(queue).reshape(1, -1)  # reduce the dimension for the input layer
         preds = self.model.predict(feat, verbose=0)
-
         return Gesture(np.argmax(preds, axis=1)[0])
 
 
 class KNNClassifier(GestureModel):
-    def __init__(self, assets_path: PurePath, arm_dominance: str, emg_mode: EMGMode, n_samples):
+    def __init__(self, arm_dominance: str, assets: PurePath, emg_mode: EMGMode, n_samples):
         super().__init__('knn', arm_dominance, emg_mode, n_samples)
         # check if the model exists
-        model_path = assets_path / f"knn-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"
+        model_path = assets / f"knn-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"
         if not model_path.exists():
             logger.error(f"model: {model_path.absolute()} not found")
             exit(1)
@@ -230,12 +225,7 @@ class KNNClassifier(GestureModel):
         self.model = joblib.load(model_path.absolute())
 
     @classmethod
-    def fit(cls, args: argparse.Namespace):
-        arm_dominance = args.arm_dominance
-        data_path = Path(args.data)
-        emg_mode = EMGMode(args.emg_mode)
-        n_samples = args.n_samples
-
+    def fit(cls, arm_dominance: str, assets: PurePath, data_path: PurePath, emg_mode: EMGMode, k: int, n_samples: int):
         # read the data files
         features = cls.read_data(
             data_path,
@@ -245,15 +235,11 @@ class KNNClassifier(GestureModel):
         )
         labels = features.pop('gesture')
 
-        model = KNeighborsClassifier(n_neighbors=args.k, metric="euclidean")
+        model = KNeighborsClassifier(n_neighbors=k, metric="euclidean")
         model.fit(features, np.ravel(labels))
 
         # save the classifier with joblib
-        model_path = (
-            Path(__file__).parent.parent.parent
-            / "assets"
-            / f"knn-{arm_dominance}-{emg_mode.name.lower()}-{args.n_samples}-samples-model.pkl"
-        )
+        model_path = assets / f"knn-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"
         joblib.dump(model, model_path.absolute(), protocol=2)
         logger.info(f"new model saved at {model_path.absolute()}")
 

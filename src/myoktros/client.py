@@ -54,9 +54,9 @@ class GestureClient(MyoClient):
         # load the model
         assets_path = Path(__file__).parent.parent.parent / "assets"
         if args.model_type == 'keras':
-            self.model = KerasSequentialModel(assets_path, self.arm_dominance, self.emg_mode, args.n_samples)
+            self.model = KerasSequentialModel(self.arm_dominance, assets_path, self.emg_mode, args.n_samples)
         elif args.model_type == 'knn':
-            self.model = KNNClassifier(assets_path, self.arm_dominance, self.emg_mode, args.n_samples)
+            self.model = KNNClassifier(self.arm_dominance, assets_path, self.emg_mode, args.k, args.n_samples)
         else:
             logger.error(f"invalid model: {args.model_type}")
             exit(1)
@@ -71,7 +71,7 @@ class GestureClient(MyoClient):
     async def on_classifier_event(self, ce):
         # TODO: do something when the arm is unsynced?
         if ce.t == ClassifierEventType.POSE:
-            print(ce.pose)
+            # print(ce.pose)
             trigger = self.trigger_map[ce.pose]
             if trigger:
                 try:
@@ -79,7 +79,8 @@ class GestureClient(MyoClient):
                 except MachineError:
                     pass
         else:
-            print(ce.t)
+            # print(ce.t)
+            pass
 
     async def on_emg(self, data):
         # wait until the queue to fill up
@@ -125,7 +126,8 @@ class GestureClient(MyoClient):
 
     async def on_motion_event(self, me):
         if me.t == MotionEventType.TAP:
-            print(f"{MotionEventType.TAP}: {me.tap_count} {me.tap_direction}")
+            # print(f"{MotionEventType.TAP}: {me.tap_count} {me.tap_direction}")
+            pass
 
     def set_robot(self, robot):
         self.robot = robot
@@ -228,6 +230,7 @@ async def start_countdown(vibrate, gesture, arm_dominance, emg_mode, duration, a
     print(f"- on the {arm_dominance} arm")
     print(f"- with {emg_mode.name.lower()}")
     print(f"- for {duration} seconds")
+    print("")
 
     # count 5
     for i in range(5, 0, -1):
