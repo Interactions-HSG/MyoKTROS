@@ -24,11 +24,11 @@ N_SENSORS = 8
 class Gesture(Enum):
     REST = 0
     GRAB = 1
-    TIGER = 2
-    HORN = 3
-    PEACE = 4
-    TENNET = 5
-    # OK = 6
+    EXTENSION = 2
+    TENNET = 3
+    OK = 4
+    # HORN = 5
+    # PEACE = 6
 
 
 class GestureModel:
