@@ -1,7 +1,6 @@
 import argparse
 import asyncio
 import logging
-import pickle
 import time
 from collections import deque
 from pathlib import Path, PurePath
@@ -37,7 +36,6 @@ class GestureClient(MyoClient):
         self.last_gesture = None
         self.model = None
         self.n_samples = None
-        self.n_periods = None
         self.queue = None
         self.trigger_map = DEFAULT_TRIGGER_MAP
 
@@ -53,9 +51,9 @@ class GestureClient(MyoClient):
 
         # load the model
         if args.model == 'keras':
-            self.model = KerasSequentialModel(em, args.n_periods, args.n_samples, model_path)
+            self.model = KerasSequentialModel(em, args.n_samples, model_path)
         elif args.model == 'knn':
-            self.model = KNNClassifier(em, args.n_periods, args.n_samples, model_path)
+            self.model = KNNClassifier(em, args.n_samples, model_path)
         else:
             logger.error(f"invalid model: {args.model}")
             exit(1)
@@ -72,8 +70,7 @@ class GestureClient(MyoClient):
         # set the initial attributes
         self.last_gesture = Gesture.RELAX
         self.n_samples = args.n_samples
-        self.n_periods = args.n_periods
-        self.queue = deque([], self.n_periods * self.n_samples)
+        self.queue = deque([], self.n_samples)
 
     async def on_classifier_event(self, ce):
         logger.info(ce.t)
@@ -89,7 +86,7 @@ class GestureClient(MyoClient):
     async def on_emg(self, data):
         # wait until the queue to fill up
         self.queue.append(data)
-        if len(self.queue) < self.n_periods * self.n_samples:
+        if len(self.queue) < self.n_samples:
             return
 
         # predict the gesture
@@ -99,7 +96,7 @@ class GestureClient(MyoClient):
         await self.on_gesture(pred)
 
         # clear the queue
-        self.queue = deque([], self.n_periods * self.n_samples)
+        self.queue = deque([], self.n_samples)
 
     async def on_emg_data_aggregated(self, emg):
         await self.on_emg(emg)
@@ -215,15 +212,16 @@ class EvaluaterClient(GestureClient):
     def __init__(self):
         super().__init__()
 
-    async def on_gesture(self, gesture: Gesture):
-        self.buf.append(gesture)
+    async def on_gesture(self, g: Gesture):
+        logger.info(g)
+
+    # async def on_emg(self, data):
+    #     self.buf.append(data)
 
     async def evaluate(self, args: argparse.Namespace):
         duration = args.duration
         em = EMGMode(args.emg_mode)
-        n_samples = args.n_samples
 
-        results = {}
         for gesture in Gesture:
             self.buf = []
             self.gesture = gesture
@@ -238,20 +236,13 @@ class EvaluaterClient(GestureClient):
             # stop
             await self.stop()
 
-            # save the result
-            results[gesture] = self.buf
-
-        # report at the end
-        for g, r in results.items():
-            acc = r.count(g) / len(r) * 100
-            logger.info(f"accuracy for {g.name}: {acc:.2f}%")
-
-        # save the result to a pickle file
-        data_path = Path.cwd() / "data"
-        now = time.strftime("%Y%m%d%H%M%S")
-        p = data_path / f"{args.model}-{em.name}-{n_samples}-samples-evaluation-{now}.pkl"
-        with p.open('wb') as f:
-            pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
+            # test_features = []
+            # for i in range(0, len(self.buf), n_samples):
+            #    feat = self.buf[i : i + n_samples]
+            #    test_features.append(feat)
+            # test_features = pd.DataFrame(test_features)
+            # test_labels = pd.Series(np.full(len(test_features), gesture.value))
+            # self.model.evaluate(test_features, test_labels)
 
 
 async def start_countdown(vibrate, gesture, em, seconds, action=""):
