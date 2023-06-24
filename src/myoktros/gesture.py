@@ -22,63 +22,75 @@ N_SENSORS = 8
 
 
 class Gesture(Enum):
-    RELAX = 0
+    REST = 0
     GRAB = 1
-    STRETCH_FINGERS = 2
-    TIGER = 3
-    HORN = 4
+    TIGER = 2
+    HORN = 3
+    PEACE = 4
     TENNET = 5
+    # OK = 6
 
 
 class GestureModel:
-    def __init__(self, name: str, em: EMGMode, n_samples: int):
+    def __init__(self, name: str, ad: str, em: EMGMode, n_samples: int):
         self.name = name
+        self.arm_dominance = ad
         self.emg_mode = em
         self.n_samples = n_samples
 
     @classmethod
-    def read_data(cls, data_path: PurePath, em: EMGMode, n_samples: int):
-        # read the data files
-        gesture_names = [g.name for g in Gesture]
-        data_files = sorted(
-            filter(
-                lambda f: any([gn in f.name for gn in gesture_names]),
-                data_path.glob(f"*-{em.name}-*.csv"),
+    def read_data(cls, data_path: PurePath, arm_dominance: str, emg_mode: EMGMode, n_samples: int):
+        # iterate the record directories
+        data = None
+        for session in sorted(data_path.glob('*')):
+            # read the data files
+            gesture_names = [g.name.lower() for g in Gesture]
+            data_files = sorted(
+                filter(
+                    lambda f: any([gnl in f.name for gnl in gesture_names]),
+                    session.glob(f"{arm_dominance}-{emg_mode.name.lower()}-*.csv"),
+                )
             )
-        )
-        if len(data_files) == 0:
-            logger.error(f"no data files found in {data_path.absolute()}")
-            exit(1)
-        df = pd.concat(map(pd.read_csv, data_files), ignore_index=True)
+            if len(data_files) == 0:
+                logger.info(f"no data files found in {session.absolute()}")
+                continue
 
-        if em == EMGMode.SEND_FILT:
-            # drop the mask for FVData
-            _ = df.pop('mask')
+            # read the recorded data for all the gestures during the session
+            df = pd.concat(map(pd.read_csv, data_files), ignore_index=True)
 
-        # drop the timestamp
-        _ = df.pop('timestamp')
+            if emg_mode == EMGMode.SEND_FILT:
+                # drop the mask for FVData
+                _ = df.pop('mask')
 
-        def f(x, n):
-            # reindex data per gesture
-            x = x.reset_index(drop=False)
-            # trim extra data to fit in multiples of n rows
-            x.drop(x.tail(x.shape[0] % n).index, inplace=True)
-            # save the 0 to n samples as a group
-            return x.groupby(x.index // n, group_keys=True).apply(lambda x: x.reset_index(drop=False))
+            # drop the timestamp
+            _ = df.pop('timestamp')
 
-        # frame each n_samples
-        df = df.groupby('gesture', group_keys=False).apply(f, n_samples)
+            def f(x, n):
+                # reindex data per gesture
+                x = x.reset_index(drop=False)
+                # trim extra data to fit in multiples of n rows
+                x.drop(x.tail(x.shape[0] % n).index, inplace=True)
+                # save the 0 to n samples as a group
+                return x.groupby(x.index // n, group_keys=True).apply(lambda x: x.reset_index(drop=False))
 
-        # drop the per gesture index and keep sequence # (level_0)
-        df = df.drop(['level_0'], axis=1).reset_index(drop=False)
-        df = df.rename(columns={'level_0': 'seq', 'level_1': 'sample'})
+            # frame each n_samples
+            df = df.groupby('gesture', group_keys=False).apply(f, n_samples)
 
-        # build gesture-seq column and make it as the new index
-        df['gseq'] = df.apply(lambda x: f"{x['gesture']}-{x['seq']}", axis=1)
-        df = df.drop(['index', 'seq'], axis=1)
+            # drop the per gesture index and keep sequence # (level_0)
+            df = df.drop(['level_0'], axis=1).reset_index(drop=False)
+            df = df.rename(columns={'level_0': 'seq', 'level_1': 'sample'})
 
-        # pivot each sample for gseq
-        df = df.pivot(columns=['sample'], index='gseq')
+            # build the unique id column and make it as the new index
+            df['id'] = df.apply(lambda x: f"{session.name}-{x['gesture']}-{x['seq']}", axis=1)
+            df = df.drop(['index', 'seq'], axis=1)
+
+            # pivot each sample for gseq
+            df = df.pivot(columns=['sample'], index='id')
+
+            if data is None:
+                data = df
+            else:
+                data = pd.concat([data, df])
 
         # remove duplicate gesture columns
         """
@@ -87,16 +99,17 @@ class GestureModel:
         Consider joining all columns at once using pd.concat(axis=1) instead.
         To get a de-fragmented frame, use `newframe = frame.copy()`
         """
-        df['gesture'] = df.pop('gesture')[0]
+        if data is not None:
+            data['gesture'] = data.pop('gesture')[0]
 
-        return df
+        return data
 
 
 class KerasSequentialModel(GestureModel):
-    def __init__(self, assets_path: PurePath, em: EMGMode, n_samples: int):
-        super().__init__('keras', em, n_samples)
+    def __init__(self, assets_path: PurePath, arm_dominance: str, emg_mode: EMGMode, n_samples: int):
+        super().__init__('keras', arm_dominance, emg_mode, n_samples)
         # check if the model exists
-        model_path = assets_path / f"keras-{em.name}-{n_samples}-samples-model"
+        model_path = assets_path / f"keras-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model"
         if not model_path.exists():
             logger.error(f"model: {model_path.absolute()} not found")
             exit(1)
@@ -108,15 +121,18 @@ class KerasSequentialModel(GestureModel):
 
     @classmethod
     def fit(cls, args: argparse.Namespace):
+        arm_dominance = args.arm_dominance
         assets = Path(__file__).parent.parent.parent / "assets"
-        em = EMGMode(args.emg_mode)
+        data_path = Path(args.data)
+        emg_mode = EMGMode(args.emg_mode)
         n_samples = args.n_samples
 
         # read the data files
         features = cls.read_data(
-            Path(args.data),
-            EMGMode(args.emg_mode),
-            args.n_samples,
+            data_path,
+            arm_dominance,
+            emg_mode,
+            n_samples,
         )
 
         # reserve 10% samples for validation
@@ -156,7 +172,7 @@ class KerasSequentialModel(GestureModel):
             # metrics=["sparse_categorical_accuracy"],
         )
         # save best weights to avoid overfitting
-        weight_path = assets / f"keras-{em.name}-{n_samples}-samples-weights.h5"
+        weight_path = assets / f"keras-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples" / "weights.h5"
         model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
             weight_path,
             save_best_only=True,
@@ -186,7 +202,7 @@ class KerasSequentialModel(GestureModel):
         model.evaluate(val_features, val_labels)
 
         # save the model
-        model_path = assets / f"keras-{em.name}-{n_samples}-samples-model"
+        model_path = assets / f"keras-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model"
         model.save(model_path.absolute())
         logger.info(f"new model saved at {model_path.absolute()}")
 
@@ -198,10 +214,10 @@ class KerasSequentialModel(GestureModel):
 
 
 class KNNClassifier(GestureModel):
-    def __init__(self, assets_path: PurePath, em: EMGMode, n_samples):
-        super().__init__('knn', em, n_samples)
+    def __init__(self, assets_path: PurePath, arm_dominance: str, emg_mode: EMGMode, n_samples):
+        super().__init__('knn', arm_dominance, emg_mode, n_samples)
         # check if the model exists
-        model_path = assets_path / f"knn-{em.name}-{n_samples}-samples-model.pkl"
+        model_path = assets_path / f"knn-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"
         if not model_path.exists():
             logger.error(f"model: {model_path.absolute()} not found")
             exit(1)
@@ -210,13 +226,17 @@ class KNNClassifier(GestureModel):
 
     @classmethod
     def fit(cls, args: argparse.Namespace):
-        em = EMGMode(args.emg_mode)
+        arm_dominance = args.arm_dominance
+        data_path = Path(args.data)
+        emg_mode = EMGMode(args.emg_mode)
+        n_samples = args.n_samples
 
         # read the data files
         features = cls.read_data(
-            Path(args.data),
-            EMGMode(args.emg_mode),
-            args.n_samples,
+            data_path,
+            arm_dominance,
+            emg_mode,
+            n_samples,
         )
         labels = features.pop('gesture')
 
@@ -225,7 +245,9 @@ class KNNClassifier(GestureModel):
 
         # save the classifier with joblib
         model_path = (
-            Path(__file__).parent.parent.parent / "assets" / f"knn-{em.name}-{args.n_samples}-samples-model.pkl"
+            Path(__file__).parent.parent.parent
+            / "assets"
+            / f"knn-{arm_dominance}-{emg_mode.name.lower()}-{args.n_samples}-samples-model.pkl"
         )
         joblib.dump(model, model_path.absolute(), protocol=2)
         logger.info(f"new model saved at {model_path.absolute()}")

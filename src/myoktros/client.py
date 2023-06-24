@@ -35,6 +35,7 @@ class GestureClient(MyoClient):
         # always enable EMGData aggregation
         self.aggregate_emg = True
         # the following instance attributes need to be set by configure()
+        self.arm_dominance = None
         self.last_gesture = None
         self.emg_mode = None
         self.model = None
@@ -44,6 +45,7 @@ class GestureClient(MyoClient):
 
     async def configure(self, args: argparse.Namespace):
         # set the initial attributes
+        self.arm_dominance = args.arm_dominance
         self.emg_mode = EMGMode(args.emg_mode)
         self.last_gesture = Gesture(0)
         self.n_samples = args.n_samples
@@ -52,9 +54,9 @@ class GestureClient(MyoClient):
         # load the model
         assets_path = Path(__file__).parent.parent.parent / "assets"
         if args.model_type == 'keras':
-            self.model = KerasSequentialModel(assets_path, self.emg_mode, args.n_samples)
+            self.model = KerasSequentialModel(assets_path, self.arm_dominance, self.emg_mode, args.n_samples)
         elif args.model_type == 'knn':
-            self.model = KNNClassifier(assets_path, self.emg_mode, args.n_samples)
+            self.model = KNNClassifier(assets_path, self.arm_dominance, self.emg_mode, args.n_samples)
         else:
             logger.error(f"invalid model: {args.model_type}")
             exit(1)
@@ -147,26 +149,22 @@ class RecorderClient(MyoClient):
 
     async def record(self, args: argparse.Namespace):
         # setup myo
-        em = EMGMode(args.emg_mode)
-        await self.setup(emg_mode=em)
+        arm_dominance = args.arm_dominance
+        data_path = Path(args.data)
+        duration = args.duration
+        emg_mode = EMGMode(args.emg_mode)
+        await self.setup(emg_mode=emg_mode)
 
         # prepare the datapath
-        data_path = Path(args.data)
         if not data_path.exists():
             data_path.mkdir()
 
-        # rotate the existing data to backup
-        backup_path = data_path / "backup"
-        old_data_files = sorted(data_path.glob(f"*-{em.name}-*.csv"))
-        if len(old_data_files) > 0:
-            if not backup_path.exists():
-                backup_path.mkdir()
-            for pp in old_data_files:
-                logger.info(f"moving the existing data to 'backup': {pp.name}")
-                pp.rename(backup_path / pp.name)
-
-        # use the current datetime as the data id
-        now = time.strftime("%Y%m%d%H%M%S")
+        # create a new record directory with the current datetime
+        out_path = data_path / time.strftime("%Y%m%d%H%M%S")
+        if out_path.exists():
+            logger.info(f"{out_path.absolute()} already exists; backing up")
+            out_path.rename(data_path / out_path.name + ".bak")
+        out_path.mkdir()
 
         for gesture in Gesture:
             self.buf = []
@@ -174,27 +172,27 @@ class RecorderClient(MyoClient):
 
             # start
             # TODO: perhaps wait for the user's DOUBLE_TAP?
-            await start_countdown(self.vibrate, gesture, em, args.duration, "recording")
+            await start_countdown(self.vibrate, gesture, arm_dominance, emg_mode, duration, "recording")
             await self.start()
 
             # record
-            await wait_countdown(args.duration)
+            await wait_countdown(duration)
 
             # stop
             await self.stop()
 
             # write to file
-            out_path = self.setup_output(data_path, now, em, gesture)
-            with open(out_path.absolute(), "a") as f:
+            p = self.setup_output(out_path, arm_dominance, emg_mode, gesture)
+            with open(p.absolute(), "a") as f:
                 for line in self.buf:
                     print(line, file=f)
-            logger.info(f"saved the recorded data to {out_path.absolute()}")
+            logger.info(f"saved the recorded data to {p.absolute()}")
 
-    def setup_output(self, data_path: PurePath, now: str, em: EMGMode, g: Gesture) -> PurePath:
+    def setup_output(self, out_path: PurePath, arm_dominance: str, emg_mode: EMGMode, g: Gesture) -> PurePath:
         # build the new data filename
-        p = data_path / f"{now}-{em.name}-{g.name}.csv"
+        p = out_path / f"{arm_dominance}-{emg_mode.name.lower()}-{g.name.lower()}.csv"
         with open(p.absolute(), "w") as f:
-            if em == EMGMode.SEND_FILT:
+            if emg_mode == EMGMode.SEND_FILT:
                 print("timestamp,fv0,fv1,fv2,fv3,fv4,fv5,fv6,fv7,mask,gesture", file=f)
             else:
                 print(
@@ -219,14 +217,16 @@ class EvaluaterClient(GestureClient):
     #     self.buf.append(data)
 
 
-async def start_countdown(vibrate, gesture, em, seconds, action=""):
+async def start_countdown(vibrate, gesture, arm_dominance, emg_mode, duration, action=""):
     # notify the user and start
     logger.info("")
     logger.info(f"start {action}")
     logger.info("")
     logger.info(gesture.name)
     logger.info("")
-    logger.info(f"with {em.name} for {seconds} seconds")
+    logger.info(f"- on the {arm_dominance} arm")
+    logger.info(f"- with {emg_mode.name.lower()}")
+    logger.info(f"- for {duration} seconds")
 
     # count 5
     for i in range(5, 0, -1):
@@ -238,10 +238,10 @@ async def start_countdown(vibrate, gesture, em, seconds, action=""):
     await vibrate(VibrationType.MEDIUM)
 
 
-async def wait_countdown(seconds):
-    for i in range(seconds, 0, -1):
+async def wait_countdown(duration, count=5):
+    for i in range(duration, 0, -1):
         await asyncio.sleep(1)
-        if i % 5 == 0:
+        if i % count == 0:
             logger.info(f"{i} seconds left")
         else:
             logger.info("|")

@@ -30,6 +30,12 @@ def entrypoint():  # no cov
         default="127.0.0.1",
     )
     run_mode.add_argument(
+        "--arm-dominance",
+        help="left/right arm wearing the Myo",
+        choices=['left', 'right'],
+        default='right',
+    )
+    run_mode.add_argument(
         "--emg-mode",
         help="set the myo.types.EMGMode to use \
         (1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified)",
@@ -73,6 +79,12 @@ def entrypoint():  # no cov
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     calibrate_mode.add_argument(
+        "--arm-dominance",
+        help="left/right arm wearing the Myo",
+        choices=['left', 'right'],
+        default='right',
+    )
+    calibrate_mode.add_argument(
         "--data",
         help="path to the data directory to save recorded data",
         type=str,
@@ -82,7 +94,7 @@ def entrypoint():  # no cov
         "--duration",
         help="seconds to record each gesture for recoding",
         type=int,
-        default=10,
+        default=30,
     )
     calibrate_mode.add_argument(
         "--emg-mode",
@@ -137,6 +149,12 @@ def entrypoint():  # no cov
         conflict_handler='resolve',
         description='test the model to detect the gestures without attaching to a robot',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    test_mode.add_argument(
+        "--arm-dominance",
+        help="left/right arm wearing the Myo",
+        choices=['left', 'right'],
+        default='right',
     )
     test_mode.add_argument(
         "--emg-mode",
