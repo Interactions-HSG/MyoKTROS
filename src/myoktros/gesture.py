@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 np.set_printoptions(precision=3, suppress=True)
 
 
-BATCH_SIZE = 50
+BATCH_SIZE = 100
 EPOCHS = 1000
 LEARNING_RATE = 1e-3
 N_SENSORS = 8
@@ -24,11 +24,9 @@ N_SENSORS = 8
 class Gesture(Enum):
     REST = 0
     GRAB = 1
-    EXTENSION = 2
-    TENNET = 3
-    OK = 4
-    # HORN = 5
-    # PEACE = 6
+    STRETCH_FINGERS = 2
+    EXTENSION = 3
+    TENNET = 4
 
 
 class GestureModel:
