@@ -24,9 +24,10 @@ N_SENSORS = 8
 class Gesture(Enum):
     RELAX = 0
     GRAB = 1
-    STRETCH_FINGER = 2
-    EXTENSION = 3
-    THUMBS_UP = 4
+    STRETCH_FINGERS = 2
+    TIGER = 3
+    HORN = 4
+    TENNET = 5
 
 
 class GestureModel:
@@ -36,11 +37,7 @@ class GestureModel:
         self.n_samples = n_samples
 
     @classmethod
-    def read_data(cls, args):
-        data_path = Path(args.data)
-        em = EMGMode(args.emg_mode)
-        n_samples = args.n_samples
-
+    def read_data(cls, data_path: Path, em: EMGMode, n_samples: int):
         # read the data files
         gesture_names = [g.name for g in Gesture]
         data_files = sorted(
@@ -84,14 +81,26 @@ class GestureModel:
         df = df.pivot(columns=['sample'], index='gseq')
 
         # remove duplicate gesture columns
+        """
+        PerformanceWarning: DataFrame is highly fragmented.
+        This is usually the result of calling `frame.insert` many times, which has poor performance.
+        Consider joining all columns at once using pd.concat(axis=1) instead.
+        To get a de-fragmented frame, use `newframe = frame.copy()`
+        """
         df['gesture'] = df.pop('gesture')[0]
 
         return df
 
 
 class KerasSequentialModel(GestureModel):
-    def __init__(self, em: EMGMode, n_samples: int, model_path: PurePath):
+    def __init__(self, assets_path: Path, em: EMGMode, n_samples: int, model_path: PurePath):
         super().__init__('keras', em, n_samples)
+        # check if the model exists
+        model_path = assets_path / f"keras-{em.name}-{n_samples}-samples-model"
+        if not model_path.exists():
+            logger.error(f"model: {model_path.absolute()} not found")
+            exit(1)
+
         self.model = tf.keras.models.load_model(model_path.absolute())
 
     def evaluate(self, test_features, test_labels):
@@ -104,7 +113,11 @@ class KerasSequentialModel(GestureModel):
         n_samples = args.n_samples
 
         # read the data files
-        features = cls.read_data(args)
+        features = cls.read_data(
+            Path(args.data),
+            EMGMode(args.emg_mode),
+            args.n_samples,
+        )
 
         # reserve 10% samples for validation
         val_features = features.groupby('gesture').apply(lambda x: x.sample(frac=0.1)).reset_index(drop=True)
@@ -123,10 +136,12 @@ class KerasSequentialModel(GestureModel):
         model = tf.keras.Sequential(
             [
                 normalize,
-                # first hidden layer
-                tf.keras.layers.Dense(100, activation="relu", input_shape=(shape,)),
-                # second hidden layer
-                tf.keras.layers.Dense(64, activation="relu"),
+                # 1st hidden layer
+                tf.keras.layers.Dense(200, activation="sigmoid", input_shape=(shape,)),
+                # 2nd hidden layer
+                tf.keras.layers.Dense(100, activation="sigmoid"),
+                # 3rd hidden layer
+                tf.keras.layers.Dense(50, activation="sigmoid"),
                 # output layer, N gestures
                 tf.keras.layers.Dense(len(Gesture), activation="softmax", name="prediction"),
             ]
@@ -183,8 +198,14 @@ class KerasSequentialModel(GestureModel):
 
 
 class KNNClassifier(GestureModel):
-    def __init__(self, em: EMGMode, n_samples, model_path: PurePath):
+    def __init__(self, assets_path: Path, em: EMGMode, n_samples, model_path: PurePath):
         super().__init__('knn', em, n_samples)
+        # check if the model exists
+        model_path = assets_path / f"knn-{em.name}-{n_samples}-samples-model.pkl"
+        if not model_path.exists():
+            logger.error(f"model: {model_path.absolute()} not found")
+            exit(1)
+
         self.model = joblib.load(model_path.absolute())
 
     @classmethod
@@ -192,7 +213,11 @@ class KNNClassifier(GestureModel):
         em = EMGMode(args.emg_mode)
 
         # read the data files
-        features = cls.read_data(args)
+        features = cls.read_data(
+            Path(args.data),
+            EMGMode(args.emg_mode),
+            args.n_samples,
+        )
         labels = features.pop('gesture')
 
         model = KNeighborsClassifier(n_neighbors=args.k, metric="euclidean")

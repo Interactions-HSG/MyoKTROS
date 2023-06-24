@@ -51,7 +51,7 @@ class Command:  # no cov
     @classmethod
     async def calibrate(cls, args: argparse.Namespace):
         if not args.only_train:
-            await cls.train(args)
+            await cls.record(args)
         if not args.only_record:
             await cls.train(args)
         exit(0)
@@ -66,6 +66,7 @@ class Command:  # no cov
                 logger.info('rescanning for a Myo device...')
 
         await rc.record(args)
+        await rc.sleep()
 
     @classmethod
     async def train(cls, args: argparse.Namespace):

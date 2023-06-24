@@ -49,19 +49,12 @@ class GestureClient(MyoClient):
         self.n_samples = args.n_samples
         self.queue = deque([], self.n_samples)
 
-        # check if the model exists
-        assets = Path(__file__).parent.parent.parent / "assets"
-        ext = ".pkl" if args.model_type == 'knn' else ""
-        model_path = assets / f"{args.model_type}-{self.emg_mode.name}-{args.n_samples}-samples-model{ext}"
-        if not model_path.exists():
-            logger.error(f"model: {model_path.absolute()} not found")
-            exit(1)
-
         # load the model
+        assets_path = Path(__file__).parent.parent.parent / "assets"
         if args.model_type == 'keras':
-            self.model = KerasSequentialModel(self.emg_mode, args.n_samples, model_path)
+            self.model = KerasSequentialModel(assets_path, self.emg_mode, args.n_samples)
         elif args.model_type == 'knn':
-            self.model = KNNClassifier(self.emg_mode, args.n_samples, model_path)
+            self.model = KNNClassifier(assets_path, self.emg_mode, args.n_samples)
         else:
             logger.error(f"invalid model: {args.model_type}")
             exit(1)

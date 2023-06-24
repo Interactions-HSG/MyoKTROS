@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 
 from .command import Command
+from .gesture import Gesture, GestureModel, KerasSequentialModel, KNNClassifier
 
 
 def entrypoint():  # no cov
@@ -48,7 +49,8 @@ def entrypoint():  # no cov
     run_mode.add_argument(
         "--n-samples",
         help="number of samples to detect a gesture",
-        default=10,
+        type=int,
+        default=50,
     )
     run_mode.add_argument(
         "-p",
@@ -108,7 +110,8 @@ def entrypoint():  # no cov
     calibrate_mode.add_argument(
         "--n-samples",
         help="number of samples to detect a gesture",
-        default=25,
+        type=int,
+        default=50,
     )
     calibrate_mode.add_argument(
         "-v",
@@ -154,8 +157,9 @@ def entrypoint():  # no cov
     )
     test_mode.add_argument(
         "--n-samples",
-        default=25,
         help="number of samples to detect a gesture",
+        type=int,
+        default=50,
     )
     test_mode.add_argument(
         "-v",
