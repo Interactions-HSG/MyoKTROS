@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 np.set_printoptions(precision=3, suppress=True)
 
 
-BATCH_SIZE = 100
+BATCH_SIZE = 50
 EPOCHS = 1000
 LEARNING_RATE = 1e-3
 N_SENSORS = 8
@@ -43,6 +43,9 @@ class GestureModel:
         # iterate the record directories
         data = None
         for session in sorted(data_path.glob('*')):
+            if not session.is_dir():
+                continue
+
             # read the data files
             gesture_names = [g.name.lower() for g in Gesture]
             data_files = sorted(
@@ -54,6 +57,8 @@ class GestureModel:
             if len(data_files) == 0:
                 logger.info(f"no data files found in {session.absolute()}")
                 continue
+            for f in data_files:
+                logger.info(f"reading {f.absolute()}")
 
             # read the recorded data for all the gestures during the session
             df = pd.concat(map(pd.read_csv, data_files), ignore_index=True)
@@ -172,7 +177,7 @@ class KerasSequentialModel(GestureModel):
             # metrics=["sparse_categorical_accuracy"],
         )
         # save best weights to avoid overfitting
-        weight_path = assets / f"keras-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples" / "weights.h5"
+        weight_path = assets / f"keras-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model" / "weights.h5"
         model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
             weight_path,
             save_best_only=True,
