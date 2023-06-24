@@ -207,6 +207,8 @@ class KerasSequentialModel(GestureModel):
         model.save(model_path.absolute())
         logger.info(f"new model saved at {model_path.absolute()}")
 
+        return model
+
     def predict(self, queue: list):
         feat = np.array(queue).reshape(1, -1)  # reduce the dimension for the input layer
         preds = self.model.predict(feat, verbose=0)
@@ -242,6 +244,8 @@ class KNNClassifier(GestureModel):
         model_path = assets / f"knn-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"
         joblib.dump(model, model_path.absolute(), protocol=2)
         logger.info(f"new model saved at {model_path.absolute()}")
+
+        return model
 
     def predict(self, queue: list):
         feat = np.array(queue).reshape(1, -1)
