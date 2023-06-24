@@ -1,8 +1,9 @@
 import argparse
 import asyncio
 import logging
+from pathlib import Path
 
-from myo.types import Pose
+from myo.types import EMGMode, Pose
 
 from .client import EvaluaterClient, GestureClient, RecorderClient, DEFAULT_TRIGGER_MAP
 from .gesture import Gesture, KerasSequentialModel, KNNClassifier
@@ -18,6 +19,8 @@ class Command:  # no cov
         c = None
         while c is None:
             c = await GestureClient.with_device(args.mac)
+            if c is None:
+                logger.info('rescanning for a Myo device...')
 
         await c.configure(args)
         await c.start()
@@ -48,28 +51,66 @@ class Command:  # no cov
 
     @classmethod
     async def calibrate(cls, args: argparse.Namespace):
+        if not args.only_train:
+            await cls.record(args)
+        if not args.only_record:
+            await cls.train(args)
+        exit(0)
+
+    @classmethod
+    async def record(cls, args: argparse.Namespace):
         logger.info('looking for a Myo device...')
         rc = None
         while rc is None:
             rc = await RecorderClient.with_device(args.mac)
+            if rc is None:
+                logger.info('rescanning for a Myo device...')
+
         await rc.record(args)
-        await cls.train(args)
-        exit(0)
+        await rc.sleep()
 
     @classmethod
     async def train(cls, args: argparse.Namespace):
-        if args.model == 'keras':
-            KerasSequentialModel.fit(args)
-        elif args.model == 'knn':
-            KNNClassifier.fit(args)
-        exit(0)
+        assets = Path(__file__).parent.parent.parent / "assets"
+        data_path = Path(args.data)
+        emg_mode = EMGMode(args.emg_mode)
+        if args.model_type == 'keras':
+            KerasSequentialModel.fit(
+                args.arm_dominance,
+                assets,
+                data_path,
+                emg_mode,
+                args.n_samples,
+            )
+        elif args.model_type == 'knn':
+            KNNClassifier.fit(
+                args.arm_dominance,
+                assets,
+                data_path,
+                emg_mode,
+                args.k,
+                args.n_samples,
+            )
 
     @classmethod
-    async def evaluate(cls, args: argparse.Namespace):
+    async def test(cls, args: argparse.Namespace):
         logger.info('looking for a Myo device...')
         ec = None
         while ec is None:
             ec = await EvaluaterClient.with_device(args.mac)
+            if ec is None:
+                logger.info('rescanning for a Myo device...')
+
         await ec.configure(args)
-        await ec.evaluate(args)
-        exit(0)
+        await ec.start()
+        try:
+            while True:
+                await asyncio.sleep(60)
+        except asyncio.exceptions.CancelledError:
+            pass
+        except KeyboardInterrupt:
+            pass
+        finally:
+            logger.info("stopping the session...")
+            await ec.stop()
+            await ec.sleep()

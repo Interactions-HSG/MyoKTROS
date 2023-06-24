@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 
 from .command import Command
+from .gesture import Gesture, GestureModel, KerasSequentialModel, KNNClassifier
 
 
 def entrypoint():  # no cov
@@ -29,6 +30,12 @@ def entrypoint():  # no cov
         default="127.0.0.1",
     )
     run_mode.add_argument(
+        "--arm-dominance",
+        help="left/right arm wearing the Myo",
+        choices=['left', 'right'],
+        default='right',
+    )
+    run_mode.add_argument(
         "--emg-mode",
         help="set the myo.types.EMGMode to use \
         (1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified)",
@@ -40,15 +47,16 @@ def entrypoint():  # no cov
         help="specify the mac address for Myo",
     )
     run_mode.add_argument(
-        "--model",
+        "--model-type",
         choices=['keras', 'knn'],
         default='keras',
-        help="gesture detection model",
+        help="model type to detect the gestures",
     )
-    # TODO: read from the model
     run_mode.add_argument(
         "--n-samples",
-        default=10,
+        help="number of samples to detect a gesture",
+        type=int,
+        default=50,
     )
     run_mode.add_argument(
         "-p",
@@ -71,6 +79,12 @@ def entrypoint():  # no cov
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     calibrate_mode.add_argument(
+        "--arm-dominance",
+        help="left/right arm wearing the Myo",
+        choices=['left', 'right'],
+        default='right',
+    )
+    calibrate_mode.add_argument(
         "--data",
         help="path to the data directory to save recorded data",
         type=str,
@@ -80,7 +94,7 @@ def entrypoint():  # no cov
         "--duration",
         help="seconds to record each gesture for recoding",
         type=int,
-        default=10,
+        default=30,
     )
     calibrate_mode.add_argument(
         "--emg-mode",
@@ -100,110 +114,78 @@ def entrypoint():  # no cov
         help="specify the mac address for Myo",
     )
     calibrate_mode.add_argument(
-        "--model",
-        help="model to calibrate",
+        "--model-type",
+        help="model type to calibrate",
         choices=['keras', 'knn'],
         default='keras',
     )
     calibrate_mode.add_argument(
         "--n-samples",
-        help="number of samples to train the model",
-        default=10,
+        help="number of samples to detect a gesture",
+        type=int,
+        default=50,
     )
     calibrate_mode.add_argument(
         "-v",
         "--verbose",
         action="store_true",
         help="sets the log level to debug",
+    )
+    cm_only_options = calibrate_mode.add_mutually_exclusive_group()
+    cm_only_options.add_argument(
+        "--only-record",
+        action='store_true',
+        help="only record EMG data without training a model",
+    )
+    cm_only_options.add_argument(
+        "--only-train",
+        action='store_true',
+        help="only train a model without recording EMG data",
     )
     calibrate_mode.set_defaults(command=Command.calibrate)
 
-    train_mode = commands.add_parser(
-        'train',
+    test_mode = commands.add_parser(
+        'test',
         conflict_handler='resolve',
-        description='Train the gesture model',
+        description='test the model to detect the gestures without attaching to a robot',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    train_mode.add_argument(
-        "--data",
-        help="path to the data directory to train the model with",
-        type=str,
-        default=(Path.cwd() / "data").absolute(),
+    test_mode.add_argument(
+        "--arm-dominance",
+        help="left/right arm wearing the Myo",
+        choices=['left', 'right'],
+        default='right',
     )
-    train_mode.add_argument(
+    test_mode.add_argument(
         "--emg-mode",
-        help="set the myo.types.EMGMode to train on \
+        help="set the myo.types.EMGMode for testing \
         (1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified)",
         type=int,
         default=1,
     )
-    train_mode.add_argument(
-        "--k",
-        help="k for fitting the knn model",
-        type=int,
-        default=15,
-    )
-    train_mode.add_argument(
-        "--model",
-        help="model to (re-)train",
-        choices=['keras', 'knn'],
-        default='keras',
-    )
-    train_mode.add_argument(
-        "--n-samples",
-        help="number of samples to train the model",
-        default=10,
-        type=int,
-    )
-    train_mode.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="sets the log level to debug",
-    )
-    train_mode.set_defaults(command=Command.train)
-
-    evaluate_mode = commands.add_parser(
-        'evaluate',
-        conflict_handler='resolve',
-        description='evaluate the model performance for detecting the gestures',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    evaluate_mode.add_argument(
-        "--duration",
-        help="seconds to record each gesture for evaluation",
-        type=int,
-        default=5,
-    )
-    evaluate_mode.add_argument(
-        "--emg-mode",
-        help="set the myo.types.EMGMode to evaluate with \
-        (1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified)",
-        type=int,
-        default=1,
-    )
-    evaluate_mode.add_argument(
+    test_mode.add_argument(
         "--mac",
         help="specify the mac address for Myo",
     )
-    evaluate_mode.add_argument(
-        "--model",
-        help="model to evaluate",
+    test_mode.add_argument(
+        "--model-type",
+        help="model type to test",
         choices=['keras', 'knn'],
         default='keras',
     )
-    # TODO: read from the model
-    evaluate_mode.add_argument(
+    test_mode.add_argument(
         "--n-samples",
-        default=10,
+        help="number of samples to detect a gesture",
+        type=int,
+        default=50,
     )
-    evaluate_mode.add_argument(
+    test_mode.add_argument(
         "-v",
         "--verbose",
         action="store_true",
         help="sets the log level to debug",
     )
-    evaluate_mode.set_defaults(command=Command.evaluate)
+    test_mode.set_defaults(command=Command.test)
 
     args = parser.parse_args()
 
