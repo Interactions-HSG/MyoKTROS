@@ -5,8 +5,6 @@ import time
 from collections import deque
 from pathlib import Path, PurePath
 
-import numpy as np
-import pandas as pd
 from myo import MyoClient
 from myo.types import (
     ClassifierEventType,
@@ -223,7 +221,6 @@ class EvaluaterClient(GestureClient):
     async def evaluate(self, args: argparse.Namespace):
         duration = args.duration
         em = EMGMode(args.emg_mode)
-        n_samples = args.n_samples
 
         for gesture in Gesture:
             self.buf = []
