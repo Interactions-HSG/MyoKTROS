@@ -45,15 +45,10 @@ def entrypoint():  # no cov
         default='keras',
         help="gesture detection model",
     )
+    # TODO: read from the model
     run_mode.add_argument(
         "--n-samples",
-        help="number of samples for 1 period",
-        default=3,
-    )
-    run_mode.add_argument(
-        "--n-periods",
-        help="number of periods to be evaluated by the keras model",
-        default=3,
+        default=10,
     )
     run_mode.add_argument(
         "-p",
@@ -95,22 +90,10 @@ def entrypoint():  # no cov
         default=1,
     )
     calibrate_mode.add_argument(
-        "--epochs",
-        help="epochs for fitting the keras model",
-        type=int,
-        default=1000,
-    )
-    calibrate_mode.add_argument(
         "--k",
         help="k for fitting the knn model",
         type=int,
         default=15,
-    )
-    calibrate_mode.add_argument(
-        "--learning_rate",
-        help="learning_rate for fitting the keras model",
-        type=float,
-        default=0.0001,
     )
     calibrate_mode.add_argument(
         "--mac",
@@ -124,7 +107,7 @@ def entrypoint():  # no cov
     )
     calibrate_mode.add_argument(
         "--n-samples",
-        help="number of samples for 1 period",
+        help="number of samples to train the model",
         default=10,
     )
     calibrate_mode.add_argument(
@@ -155,22 +138,10 @@ def entrypoint():  # no cov
         default=1,
     )
     train_mode.add_argument(
-        "--epochs",
-        help="epochs for fitting the model",
-        type=int,
-        default=1000,
-    )
-    train_mode.add_argument(
         "--k",
         help="k for fitting the knn model",
         type=int,
         default=15,
-    )
-    train_mode.add_argument(
-        "--learning_rate",
-        help="learning_rate for fitting the keras model",
-        type=float,
-        default=0.0001,
     )
     train_mode.add_argument(
         "--model",
@@ -180,7 +151,7 @@ def entrypoint():  # no cov
     )
     train_mode.add_argument(
         "--n-samples",
-        help="number of samples for 1 period",
+        help="number of samples to train the model",
         default=10,
         type=int,
     )
@@ -221,15 +192,10 @@ def entrypoint():  # no cov
         choices=['keras', 'knn'],
         default='keras',
     )
+    # TODO: read from the model
     evaluate_mode.add_argument(
         "--n-samples",
-        help="number of samples for 1 period",
         default=10,
-    )
-    evaluate_mode.add_argument(
-        "--n-periods",
-        help="number of periods to be evaluated by the keras model",
-        default=3,
     )
     evaluate_mode.add_argument(
         "-v",
