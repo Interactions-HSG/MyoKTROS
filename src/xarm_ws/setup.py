@@ -16,7 +16,6 @@ setup(
     maintainer_email='iomz@sazanka.io',
     description='xarm_api with rclpy via websocket',
     license='MIT',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'run = xarm_ws.server:run',
