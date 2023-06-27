@@ -11,27 +11,12 @@ class SetPositionClient(Node):
             self.get_logger().info('service not available, waiting again...')
         self.req = MoveCartesian.Request()
 
-    def send_request(self):
-        self.req.pose = [250.0, 0.0, 250.0, 3.14, 0.0, 0.0]
-        self.req.speed = 50.0
-        self.req.acc = 500.0
-        self.req.mvtime = 0.0
+    def send_request(self, pose, speed: float, acc: float, mvtime: float):
+        self.req.pose = pose
+        self.req.speed = speed
+        self.req.acc = acc
+        self.req.mvtime = mvtime
 
         self.future = self.c.call_async(self.req)
         rclpy.spin_until_future_complete(self, self.future)
         return self.future.result()
-
-
-def main():
-    rclpy.init()
-
-    sic = SetPositionClient()
-    response = sic.send_request()
-    sic.get_logger().info(f"/ufactory/set_position: {response}")
-
-    sic.destroy_node()
-    rclpy.shutdown()
-
-
-if __name__ == '__main__':
-    main()

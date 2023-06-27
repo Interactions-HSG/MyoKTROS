@@ -11,27 +11,12 @@ class SetServoAngleClient(Node):
             self.get_logger().info('service not available, waiting again...')
         self.req = MoveJoint.Request()
 
-    def send_request(self):
-        self.req.angles = [-0.58, 0.0, 0.0, 0.0, 0.0, 0.0]
-        self.req.speed = 0.35
-        self.req.acc = 10.0
-        self.req.mvtime = 0.0
+    def send_request(self, angles, speed: float, acc: float, mvtime: float):
+        self.req.angles = angles
+        self.req.speed = speed
+        self.req.acc = acc
+        self.req.mvtime = mvtime
 
         self.future = self.c.call_async(self.req)
         rclpy.spin_until_future_complete(self, self.future)
         return self.future.result()
-
-
-def main():
-    rclpy.init()
-
-    sic = SetServoAngleClient()
-    response = sic.send_request()
-    sic.get_logger().info(f"/ufactory/set_servo_angle: {response}")
-
-    sic.destroy_node()
-    rclpy.shutdown()
-
-
-if __name__ == '__main__':
-    main()

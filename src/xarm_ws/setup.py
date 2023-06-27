@@ -1,6 +1,6 @@
 from setuptools import setup
 
-package_name = 'ufactory_xarm_api'
+package_name = 'xarm_ws'
 
 setup(
     name=package_name,
@@ -14,13 +14,12 @@ setup(
     zip_safe=True,
     maintainer='Iori Mizutani',
     maintainer_email='iomz@sazanka.io',
-    description='xarm_api with rclpy',
+    description='xarm_api with rclpy via websocket',
     license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'set_position = ufactory_xarm_api.set_position:main',
-            'set_servo_angle = ufactory_xarm_api.set_servo_angle:main',
+            'run = xarm_ws.server:run',
         ],
     },
 )

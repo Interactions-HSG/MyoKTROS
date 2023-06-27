@@ -5,7 +5,7 @@ networks:
     ipam:
       driver: default
       config:
-        - subnet: 10.22.22.0/24
+        - subnet: 10.77.77.0/24
 services:
   ros2-xarm:
     image: ghcr.io/iomz/ros2-xarm:humble
@@ -14,6 +14,16 @@ services:
     command: ros2 launch xarm_api lite6_driver.launch.py robot_ip:="${ROBOT_IP}"
     networks:
       ros:
-        ipv4_address: 10.22.22.22
-    volumes:
-      - ./src/ufactory_xarm_api:/app/src/ufactory_xarm_api
+        ipv4_address: 10.77.77.77
+  xarm-ws:
+    build: ./src/xarm_ws
+    container_name: xarm-ws
+    depends_on:
+      - ros2-xarm
+    #profiles:
+    #  - donotstart
+    ports:
+      - 8765:8765/tcp
+    networks:
+      ros:
+        ipv4_address: 10.77.77.2

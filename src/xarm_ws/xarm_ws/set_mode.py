@@ -11,23 +11,8 @@ class SetModeClient(Node):
             self.get_logger().info('service not available, waiting again...')
         self.req = SetInt16.Request()
 
-    def send_request(self, data):
+    def send_request(self, data: int):
         self.req.data = data
         self.future = self.c.call_async(self.req)
         rclpy.spin_until_future_complete(self, self.future)
         return self.future.result()
-
-
-def main(args=None):
-    rclpy.init()
-
-    sic = SetModeClient()
-    response = sic.send_request(2)
-    sic.get_logger().info(f"/ufactory/set_mode: {response}")
-
-    sic.destroy_node()
-    rclpy.shutdown()
-
-
-if __name__ == '__main__':
-    main()
