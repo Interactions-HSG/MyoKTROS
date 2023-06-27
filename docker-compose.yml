@@ -1,7 +1,19 @@
 version: "3.9"
+networks:
+  ros:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.22.22.0/24
 services:
   ros2-xarm:
     image: ghcr.io/iomz/ros2-xarm:humble
     container_name: ros2-xarm
     restart: unless-stopped
     command: ros2 launch xarm_api lite6_driver.launch.py robot_ip:="${ROBOT_IP}"
+    networks:
+      ros:
+        ipv4_address: 10.22.22.22
+    volumes:
+      - ./src/ufactory_xarm_api:/app/src/ufactory_xarm_api
