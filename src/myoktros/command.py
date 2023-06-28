@@ -26,7 +26,7 @@ class Command:  # no cov
         await c.start()
 
         # TODO: configure the robot from config
-        robot = Lite6ROSWS()
+        robot = Lite6ROSWS(ip=args.ip, port=args.port)
         await robot.setup()
 
         # register the triggers

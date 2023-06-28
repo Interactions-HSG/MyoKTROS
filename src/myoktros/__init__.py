@@ -24,12 +24,6 @@ def entrypoint():  # no cov
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     run_mode.add_argument(
-        "-a",
-        "--address",
-        help="IP address for the ROS server",
-        default="127.0.0.1",
-    )
-    run_mode.add_argument(
         "--arm-dominance",
         help="left/right arm wearing the Myo",
         choices=['left', 'right'],
@@ -41,6 +35,11 @@ def entrypoint():  # no cov
         (1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified)",
         type=int,
         default=1,
+    )
+    run_mode.add_argument(
+        "--ip",
+        help="IP address for the ROS server",
+        default="127.0.0.1",
     )
     run_mode.add_argument(
         "--mac",
@@ -59,7 +58,6 @@ def entrypoint():  # no cov
         default=50,
     )
     run_mode.add_argument(
-        "-p",
         "--port",
         help="port for the ROS server",
         default=8765,
