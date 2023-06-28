@@ -30,16 +30,18 @@ def entrypoint():  # no cov
         default='right',
     )
     run_mode.add_argument(
+        "-c",
+        "--robot-config",
+        help="path config file (config.ini)",
+        type=str,
+        default="config.ini",
+    )
+    run_mode.add_argument(
         "--emg-mode",
         help="set the myo.types.EMGMode to use \
         (1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified)",
         type=int,
         default=1,
-    )
-    run_mode.add_argument(
-        "--ip",
-        help="IP address for the ROS server",
-        default="127.0.0.1",
     )
     run_mode.add_argument(
         "--mac",
@@ -58,11 +60,6 @@ def entrypoint():  # no cov
         default=50,
     )
     run_mode.add_argument(
-        "--port",
-        help="port for the ROS server",
-        default=8765,
-    )
-    run_mode.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -73,7 +70,7 @@ def entrypoint():  # no cov
     calibrate_mode = commands.add_parser(
         'calibrate',
         conflict_handler='resolve',
-        description="Calibrate a keras.Sequential model by recoding the user's EMG",
+        description="Calibrate the gesture model by recoding the user's EMG",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     calibrate_mode.add_argument(

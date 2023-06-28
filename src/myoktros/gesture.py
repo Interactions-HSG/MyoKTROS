@@ -30,6 +30,9 @@ class Gesture(Enum):
 
 
 class GestureModel:
+    gesture_names = [g.name.lower() for g in Gesture]
+    data_columns = [f"data{i}" for i in range(8)]
+
     def __init__(self, name: str, ad: str, em: EMGMode, n_samples: int):
         self.name = name
         self.arm_dominance = ad
@@ -37,36 +40,113 @@ class GestureModel:
         self.n_samples = n_samples
 
     @classmethod
-    def read_data(cls, data_path: PurePath, arm_dominance: str, emg_mode: EMGMode, n_samples: int):
+    def read_csv_data(cls, p: PurePath):
+        for g in Gesture:
+            if g.name.lower() in p.name:
+                df = pd.read_csv(p)
+                df['gesture'] = g.value
+                return df
+        return None
+
+    @classmethod
+    def read_data(cls, session: PurePath, arm_dominance: str, emg_mode: EMGMode):
+        if not session.is_dir():
+            return None
+
+        # read the data files
+        data_files = sorted(
+            filter(
+                lambda f: any([gnl in f.name for gnl in cls.gesture_names]),
+                session.glob(f"{arm_dominance}-{emg_mode.name.lower()}-*.csv"),
+            )
+        )
+        if len(data_files) == 0:
+            logger.info(f"no data files found in {session.absolute()}")
+            return None
+        for f in data_files:
+            logger.info(f"reading {f.absolute()}")
+
+        # read the recorded data for all the gestures during the session
+        df = pd.concat(map(cls.read_csv_data, data_files), ignore_index=True)
+
+        if emg_mode == EMGMode.SEND_FILT:
+            # drop the mask for FVData
+            _ = df.pop('mask')
+            df = df.rename(
+                columns={
+                    'fv0': 'data0',
+                    'fv1': 'data1',
+                    'fv2': 'data2',
+                    'fv3': 'data3',
+                    'fv4': 'data4',
+                    'fv5': 'data5',
+                    'fv6': 'data6',
+                    'fv7': 'data7',
+                }
+            )
+        else:
+            df = df.rename(
+                columns={
+                    'emg0': 'data0',
+                    'emg1': 'data1',
+                    'emg2': 'data2',
+                    'emg3': 'data3',
+                    'emg4': 'data4',
+                    'emg5': 'data5',
+                    'emg6': 'data6',
+                    'emg7': 'data7',
+                }
+            )
+
+        # drop the timestamp
+        _ = df.pop('timestamp')
+
+        return df
+
+    @classmethod
+    def read_data_agg(cls, data_path: PurePath, arm_dominance: str, emg_mode: EMGMode, n_samples: int):
+        data = None
+        for session in sorted(data_path.glob('*')):
+            df = cls.read_data(session, arm_dominance, emg_mode)
+
+            if df is None:
+                continue
+
+            def f(x, n):
+                # reindex data per gesture
+                x = x.reset_index(drop=False)
+                # trim extra data to fit in multiples of n rows
+                x.drop(x.tail(x.shape[0] % n).index, inplace=True)
+                # save the 0 to n samples as a group
+                return x.groupby(x.index // n, group_keys=True).agg(['mean', 'std'])
+
+            # frame each n_samples
+            df = df.groupby('gesture', group_keys=False).apply(f, n_samples)
+
+            # build the unique id column and make it as the new index
+            df['id'] = df.apply(
+                lambda x: f"{int(x['gesture']['mean'])}-{session.name}-{int(x['index']['mean'])}", axis=1
+            )
+            df = df.drop(['index', 'gesture'], axis=1)
+            df['gesture'] = df['id'].apply(lambda x: int(x[0]))
+            df = df.set_index('id')
+
+            if data is None:
+                data = df
+            else:
+                data = pd.concat([data, df])
+
+        return data
+
+    @classmethod
+    def read_data_wide(cls, data_path: PurePath, arm_dominance: str, emg_mode: EMGMode, n_samples: int):
         # iterate the record directories
         data = None
         for session in sorted(data_path.glob('*')):
-            if not session.is_dir():
+            df = cls.read_data(session, arm_dominance, emg_mode)
+
+            if df is None:
                 continue
-
-            # read the data files
-            gesture_names = [g.name.lower() for g in Gesture]
-            data_files = sorted(
-                filter(
-                    lambda f: any([gnl in f.name for gnl in gesture_names]),
-                    session.glob(f"{arm_dominance}-{emg_mode.name.lower()}-*.csv"),
-                )
-            )
-            if len(data_files) == 0:
-                logger.info(f"no data files found in {session.absolute()}")
-                continue
-            for f in data_files:
-                logger.info(f"reading {f.absolute()}")
-
-            # read the recorded data for all the gestures during the session
-            df = pd.concat(map(pd.read_csv, data_files), ignore_index=True)
-
-            if emg_mode == EMGMode.SEND_FILT:
-                # drop the mask for FVData
-                _ = df.pop('mask')
-
-            # drop the timestamp
-            _ = df.pop('timestamp')
 
             def f(x, n):
                 # reindex data per gesture
@@ -103,7 +183,8 @@ class GestureModel:
         To get a de-fragmented frame, use `newframe = frame.copy()`
         """
         if data is not None:
-            data['gesture'] = data.pop('gesture')[0]
+            g = data.pop('gesture')[0]
+            data['gesture'] = g
 
         return data
 
@@ -125,7 +206,7 @@ class KerasSequentialModel(GestureModel):
     @classmethod
     def fit(cls, arm_dominance: str, assets: PurePath, data_path: PurePath, emg_mode: EMGMode, n_samples: int):
         # read the data files
-        features = cls.read_data(
+        features = cls.read_data_agg(
             data_path,
             arm_dominance,
             emg_mode,
@@ -139,32 +220,32 @@ class KerasSequentialModel(GestureModel):
         labels = features.pop('gesture')
         y_val = x_val.pop('gesture')
 
+        # strip std
+        # features = features.iloc[:, features.columns.get_level_values(1) == 'mean']
+        # x_val = x_val.iloc[:, x_val.columns.get_level_values(1) == 'mean']
+
         x_train, x_test, y_train, y_test = train_test_split(features, labels, test_size=0.33, random_state=42)
 
-        # input_shape: N_SENSORS*n_samples
         shape = features.shape[1]
-        assert shape == N_SENSORS * n_samples
+        logger.info(f"input_shape: {shape}")
 
         # keras.Sequential
-        normalize = tf.keras.layers.Normalization()
-        normalize.adapt(x_train)
         model = tf.keras.Sequential(
             [
-                normalize,
                 # 1st hidden layer
-                tf.keras.layers.Dense(200, activation="relu", input_shape=(shape,)),
+                tf.keras.layers.Dense(200, activation="sigmoid", input_shape=(shape,)),
                 # 2nd hidden layer
-                tf.keras.layers.Dense(100, activation="relu"),
+                tf.keras.layers.Dense(100, activation="sigmoid"),
                 # 3rd hidden layer
-                tf.keras.layers.Dense(50, activation="relu"),
+                tf.keras.layers.Dense(50, activation="sigmoid"),
                 # output layer, N gestures
-                tf.keras.layers.Dense(len(Gesture), activation="softmax", name="prediction"),
+                tf.keras.layers.Dense(len(Gesture), activation="sigmoid", name="prediction"),
             ]
         )
         model.compile(
             # optimizer=tf.keras.optimizers.RMSprop(),  # Optimizer
-            optimizer="rmsprop",
-            # optimizer=tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE),
+            # optimizer="rmsprop",
+            optimizer=tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE),
             # loss=tf.keras.losses.SparseCategoricalCrossentropy(),
             loss="sparse_categorical_crossentropy",
             # metrics=[tf.keras.metrics.SparseCategoricalAccuracy()],
@@ -180,7 +261,7 @@ class KerasSequentialModel(GestureModel):
         # stopping criterion
         early_stopping = tf.keras.callbacks.EarlyStopping(
             monitor='val_loss',
-            patience=5,
+            patience=10,  # number of epochs with no improvement
         )
         h = model.fit(  # noqa: F841
             features,
@@ -208,9 +289,12 @@ class KerasSequentialModel(GestureModel):
         return model
 
     def predict(self, queue: list):
-        feat = np.array(queue).reshape(1, -1)  # reduce the dimension for the input layer
-        preds = self.model.predict(feat, verbose=0)
-        return Gesture(np.argmax(preds, axis=1)[0])
+        # feat = np.array(queue).reshape(1, -1)  # reduce the dimension for the input layer
+        df = pd.DataFrame(queue, columns=self.data_columns)
+        # feat = df.groupby(df.index // self.n_samples, group_keys=True).agg(['mean']).iloc[0].to_numpy()
+        feat = df.groupby(df.index // self.n_samples, group_keys=True).agg(['mean', 'std']).iloc[0].to_numpy()
+        preds = self.model.predict(feat.reshape(1, -1), verbose=0)
+        return Gesture(np.argmax(preds, axis=1))
 
 
 class KNNClassifier(GestureModel):
@@ -227,13 +311,14 @@ class KNNClassifier(GestureModel):
     @classmethod
     def fit(cls, arm_dominance: str, assets: PurePath, data_path: PurePath, emg_mode: EMGMode, k: int, n_samples: int):
         # read the data files
-        features = cls.read_data(
+        features = cls.read_data_agg(
             data_path,
             arm_dominance,
             emg_mode,
             n_samples,
         )
         labels = features.pop('gesture')
+        # features = features.iloc[:, features.columns.get_level_values(1) == 'mean']
 
         model = KNeighborsClassifier(n_neighbors=k, metric="euclidean")
         model.fit(features, np.ravel(labels))
@@ -246,7 +331,8 @@ class KNNClassifier(GestureModel):
         return model
 
     def predict(self, queue: list):
-        feat = np.array(queue).reshape(1, -1)
-        # TODO: check the knn predict return
-        pred = self.model.predict(feat.reshape(1, -1))
-        return Gesture(max(set(pred), key=pred.count))
+        # feat = np.array(queue).reshape(1, -1)
+        df = pd.DataFrame(queue, columns=self.data_columns)
+        feat = df.groupby(df.index // self.n_samples, group_keys=True).agg(['mean', 'std']).iloc[0].to_numpy()
+        pred = self.model.predict(feat.reshape(1, -1))[0]
+        return Gesture(pred)

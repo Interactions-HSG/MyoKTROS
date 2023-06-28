@@ -22,7 +22,7 @@ class API:
     def get_servo_angle(cls, params={}):
         c = GetServoAngleClient()
         response = c.send_request()
-        c.get_logger().info(f"/ufactory/get_servo_angle: {response}")
+        c.get_logger().info(f"xarm_rosws:/ufactory/get_servo_angle: {response}")
         c.destroy_node()
         return response
 
@@ -32,7 +32,7 @@ class API:
         data = 1 if "data" not in params else params["data"]
         c = MotionEnableClient()
         response = c.send_request(id, data)
-        c.get_logger().info(f"/ufactory/motion_enable: {response}")
+        c.get_logger().info(f"xarm_rosws:/ufactory/motion_enable: {response}")
         c.destroy_node()
         return response
 
@@ -43,7 +43,7 @@ class API:
         mvtime = 0.0 if "mvtime" not in params else params["mvtime"]
         c = MoveGohomeClient()
         response = c.send_request(speed, acc, mvtime)
-        c.get_logger().info(f"/ufactory/move_gohome: {response}")
+        c.get_logger().info(f"xarm_rosws:/ufactory/move_gohome: {response}")
         c.destroy_node()
         return response
 
@@ -52,7 +52,7 @@ class API:
         data = 0 if "data" not in params else params["data"]
         c = SetModeClient()
         response = c.send_request(data)
-        c.get_logger().info(f"/ufactory/set_mode: {response}")
+        c.get_logger().info(f"xarm_rosws:/ufactory/set_mode: {response}")
         c.destroy_node()
         return response
 
@@ -65,7 +65,7 @@ class API:
 
         c = SetPositionClient()
         response = c.send_request(pose, speed, acc, mvtime)
-        c.get_logger().info(f"/ufactory/set_position: {response}")
+        c.get_logger().info(f"xarm_rosws:/ufactory/set_position: {response}")
         c.destroy_node()
         return response
 
@@ -78,7 +78,7 @@ class API:
 
         c = SetServoAngleClient()
         response = c.send_request(angles, speed, acc, mvtime)
-        c.get_logger().info(f"/ufactory/set_servo_angle: {response}")
+        c.get_logger().info(f"xarm_rosws:/ufactory/set_servo_angle: {response}")
         c.destroy_node()
         return response
 
@@ -87,7 +87,7 @@ class API:
         data = 0 if "data" not in params else params["data"]
         c = SetStateClient()
         response = c.send_request(data)
-        c.get_logger().info(f"/ufactory/set_mode: {response}")
+        c.get_logger().info(f"xarm_rosws:/ufactory/set_mode: {response}")
         c.destroy_node()
         return response
 
@@ -126,31 +126,31 @@ async def register(websocket):
 async def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="xarm_api via websockets",
+        description="xarm_rosws: ros2 xarm_api via websocket",
     )
     parser.add_argument(
         "--ip",
-        help="the IP address for websocket server",
+        help="IP address for websocket server",
         default="0.0.0.0",
     )
     parser.add_argument(
         "--port",
-        help="the port for msgpack listener",
+        help="port for websockert listener",
         default=8765,
     )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
-    logging.info("starting xarm_ws")
+    logging.info("starting xarm_rosws")
 
     # init rclpy
     rclpy.init()
     # setup the robot
-    logging.info("enable motion")
+    logging.info("xarm_rosws:/ufactory/enable_motion {'id': 8, 'data': 1}")
     API.motion_enable()
-    logging.info("set_mode 0")
+    logging.info("xarm_rosws:/ufactory/set_mode {'data': 0}")
     API.set_mode()
-    logging.info("set_state 0")
+    logging.info("xarm_rosws:/ufactory/set_state {'data': 0}")
     API.set_state()
 
     async with serve(register, args.ip, args.port):

@@ -56,7 +56,7 @@ class GestureClient(MyoClient):
         if args.model_type == 'keras':
             self.model = KerasSequentialModel(self.arm_dominance, assets_path, self.emg_mode, args.n_samples)
         elif args.model_type == 'knn':
-            self.model = KNNClassifier(self.arm_dominance, assets_path, self.emg_mode, args.k, args.n_samples)
+            self.model = KNNClassifier(self.arm_dominance, assets_path, self.emg_mode, args.n_samples)
         else:
             logger.error(f"invalid model: {args.model_type}")
             exit(1)
@@ -71,7 +71,7 @@ class GestureClient(MyoClient):
     async def on_classifier_event(self, ce):
         # TODO: do something when the arm is unsynced?
         if ce.t == ClassifierEventType.POSE:
-            # print(ce.pose)
+            # TODO: verify ClassifierEvent triggers
             trigger = self.trigger_map[ce.pose]
             if trigger:
                 try:
@@ -104,6 +104,7 @@ class GestureClient(MyoClient):
         await self.on_emg(fvd.fv)
 
     async def on_gesture(self, gesture: Gesture):
+        # TODO: verify gesture triggers
         # skip if the same gesture
         if self.last_gesture and gesture == self.last_gesture:
             return
@@ -140,14 +141,13 @@ class RecorderClient(MyoClient):
         self.aggregate_emg = True
         # used by callbacks
         self.buf = []
-        self.gesture = None
 
     async def on_emg_data_aggregated(self, emg):
-        line = ",".join(map(str, (time.time(),) + emg + (self.gesture.value,)))
+        line = ",".join(map(str, (time.time(),) + emg))
         self.buf.append(line)
 
     async def on_fv_data(self, fvd):
-        line = ",".join(map(str, (time.time(),) + fvd.fv + (fvd.mask, self.gesture.value)))
+        line = ",".join(map(str, (time.time(),) + fvd.fv + (fvd.mask,)))
         self.buf.append(line)
 
     async def record(self, args: argparse.Namespace):
@@ -171,7 +171,6 @@ class RecorderClient(MyoClient):
 
         for gesture in Gesture:
             self.buf = []
-            self.gesture = gesture
 
             # start
             # TODO: perhaps wait for the user's DOUBLE_TAP?
@@ -196,10 +195,10 @@ class RecorderClient(MyoClient):
         p = out_path / f"{arm_dominance}-{emg_mode.name.lower()}-{g.name.lower()}.csv"
         with open(p.absolute(), "w") as f:
             if emg_mode == EMGMode.SEND_FILT:
-                print("timestamp,fv0,fv1,fv2,fv3,fv4,fv5,fv6,fv7,mask,gesture", file=f)
+                print("timestamp,fv0,fv1,fv2,fv3,fv4,fv5,fv6,fv7,mask", file=f)
             else:
                 print(
-                    "timestamp,emg0,emg1,emg2,emg3,emg4,emg5,emg6,emg7,gesture",  # noqa
+                    "timestamp,emg0,emg1,emg2,emg3,emg4,emg5,emg6,emg7",  # noqa
                     file=f,
                 )
 

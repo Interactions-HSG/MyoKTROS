@@ -6,7 +6,7 @@ RUN source /build/xarm_ros2/install/setup.bash \
     && apt-get install -y python3-pip \
     && pip install setuptools==58.2.0 websockets
 
-COPY . /app/src/xarm_ws/
+COPY . /app/src/xarm_rosws/
 
 RUN source /build/xarm_ros2/install/setup.bash \
     && rosdep install -i --from-path src --rosdistro humble -y \
