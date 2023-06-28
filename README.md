@@ -84,8 +84,8 @@ The `myoktros calibrate` commands lets you record the EMG data and save them as 
 
 ```console
 ❯ myoktros calibrate -h
-usage: myoktros calibrate [-h] [--arm-dominance {left,right}] [--data DATA] [--duration DURATION] [--emg-mode EMG_MODE] [--k K] [--mac MAC] [--model-type {keras,knn}]
-                          [--n-samples N_SAMPLES] [-v] [--only-record | --only-train]
+usage: myoktros calibrate [-h] [--arm-dominance {left,right}] [--data DATA] [--duration DURATION] [--emg-mode EMG_MODE] [-g GESTURE] [--k K] [--mac MAC]
+                          [--model-type {keras,knn}] [--n-samples N_SAMPLES] [-v] [--only-record | --only-train]
 
 Calibrate the gesture model by recoding the user's EMG
 
@@ -96,6 +96,8 @@ options:
   --data DATA           path to the data directory to save recorded data (default: /Users/iomz/ghq/github.com/Interactions-HSG/MyoKTROS/data)
   --duration DURATION   seconds to record each gesture for recoding (default: 30)
   --emg-mode EMG_MODE   set the myo.types.EMGMode to calibrate with (1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified) (default: 1)
+  -g GESTURE, --gesture GESTURE
+                        if specified, only record a specific gesture ['REST', 'GRAB', 'STRETCH_FINGERS', 'EXTENSION', 'HORN', 'FLEMING'] (default: all)
   --k K                 k for fitting the knn model (default: 15)
   --mac MAC             specify the mac address for Myo (default: None)
   --model-type {keras,knn}
