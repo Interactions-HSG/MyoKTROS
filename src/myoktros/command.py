@@ -7,7 +7,7 @@ from myo.types import EMGMode, Pose
 
 from .client import EvaluaterClient, GestureClient, RecorderClient, DEFAULT_TRIGGER_MAP
 from .gesture import Gesture, KerasSequentialModel, KNNClassifier
-from .robot import TalkingRobot
+from .robot import Lite6ROSWS
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +25,8 @@ class Command:  # no cov
         await c.configure(args)
         await c.start()
 
-        # TODO: configure the robot with args
-        robot = TalkingRobot()
+        # TODO: configure the robot from config
+        robot = Lite6ROSWS()
         await robot.setup()
 
         # register the triggers

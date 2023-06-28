@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 import asyncio
+import json
 import logging
 
+import websockets
 from enum import Enum
 from transitions.extensions.asyncio import AsyncMachine
 
@@ -310,9 +312,84 @@ class TalkingRobot(AsyncRobot):
             await asyncio.create_subprocess_exec("say", text)
 
 
-class Lite6(AsyncRobot):
-    def __init__(self):
-        pass
+class Lite6ROSWS(AsyncRobot):
+    def __init__(self, ip, port):
+        super().__init__()
+        self.ws = f"ws://{ip}:{port}"
+
+    async def disable_free_drive(self):
+        async with websockets.connect(self.ws) as websocket:
+            await websocket.send(
+                json.dumps(
+                    {
+                        "service": "set_mode",
+                        "params": {"data": 0},
+                    }
+                )
+            )
+            await websocket.recv()
+            await websocket.send(
+                json.dumps(
+                    {
+                        "service": "set_state",
+                        "params": {},
+                    }
+                )
+            )
+            await websocket.recv()
+
+    async def enable_free_drive(self):
+        async with websockets.connect(self.ws) as websocket:
+            await websocket.send(
+                json.dumps(
+                    {
+                        "service": "set_mode",
+                        "params": {"data": 2},
+                    }
+                )
+            )
+            await websocket.recv()
+            await websocket.send(
+                json.dumps(
+                    {
+                        "service": "set_state",
+                        "params": {},
+                    }
+                )
+            )
+            await websocket.recv()
+
+    async def get_pose(self):
+        async with websockets.connect(self.ws) as websocket:
+            await websocket.send(
+                json.dumps(
+                    {
+                        "service": "get_servo_angle",
+                        "params": {},
+                    }
+                )
+            )
+            response = await websocket.recv()
+            return json.loads(response)["angles"]
+
+    async def move(self):
+        angles = self.waypoints[self.current_step]
+        async with websockets.connect(self.ws) as websocket:
+            await websocket.send(
+                json.dumps(
+                    {
+                        "service": "set_servo_angle",
+                        "params": {
+                            "angles": angles,
+                        },
+                    }
+                )
+            )
+            await websocket.recv()
+
+    async def speak(self, text):
+        if text != "":
+            await asyncio.create_subprocess_exec("say", text)
 
 
 class XArm7(AsyncRobot):
