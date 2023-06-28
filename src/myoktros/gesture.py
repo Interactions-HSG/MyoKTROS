@@ -26,7 +26,10 @@ class Gesture(Enum):
     GRAB = 1
     STRETCH_FINGERS = 2
     EXTENSION = 3
-    TENNET = 4
+    HORN = 4
+    FLEMING = 5
+    # THUMBS_UP
+    # TENNET
 
 
 class GestureModel:

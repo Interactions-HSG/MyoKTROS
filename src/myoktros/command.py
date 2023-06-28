@@ -52,12 +52,18 @@ class Command:  # no cov
         await robot.setup()
 
         # register the triggers
+        tmc = config['myoktros.trigger_map']
         tm = DEFAULT_TRIGGER_MAP
-        tm[Gesture.GRAB] = robot.grabbed
-        tm[Gesture.TENNET] = robot.play
-        tm[Gesture.STRETCH_FINGERS] = robot.confirm
+        try:
+            tm[Gesture[tmc['grabbed']]] = robot.grabbed
+            tm[Gesture[tmc['play']]] = robot.play
+            tm[Gesture[tmc['confirm']]] = robot.confirm
+            tm[Gesture[tmc['delete']]] = robot.delete
+        except KeyError as e:
+            logger.error(f"{e} is not a valid gesture")
+            exit(1)
+
         tm[Pose.DOUBLE_TAP] = robot.cancel
-        tm[Gesture.EXTENSION] = robot.delete
         c.trigger_map = tm
 
         try:
