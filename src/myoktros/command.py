@@ -1,13 +1,16 @@
 import argparse
 import asyncio
+import configparser
 import logging
+
+# import tomllib
 from pathlib import Path
 
 from myo.types import EMGMode, Pose
 
 from .client import EvaluaterClient, GestureClient, RecorderClient, DEFAULT_TRIGGER_MAP
 from .gesture import Gesture, KerasSequentialModel, KNNClassifier
-from .robot import Lite6ROSWS
+from .robot import Lite6ROSWS, XArm7ROSWS
 
 logger = logging.getLogger(__name__)
 
@@ -25,16 +28,36 @@ class Command:  # no cov
         await c.configure(args)
         await c.start()
 
-        # TODO: configure the robot from config
-        robot = Lite6ROSWS(ip=args.ip, port=args.port)
+        # read robot configuration
+        config_path = Path(args.robot_config)
+        if not config_path.exists():
+            logger.error(f"{config_path.name} doesn't exist")
+            exit(1)
+        config = configparser.ConfigParser()
+        config.read(config_path)
+        rc = config['myoktros.robot']
+        robot = None
+
+        # initialize the robot
+        if rc['driver'] == 'xarm_rosws':
+            rc = rc['myoktros.robot.xarm_rosws']
+            if rc['model'] == 'lite6':
+                robot = Lite6ROSWS(rc['ip'], int(rc['port']))
+            elif rc['model'] == 'xarm7':
+                robot = XArm7ROSWS(rc['ip'], int(rc['port']))
+
+        if robot is None:
+            exit(1)
+
         await robot.setup()
 
         # register the triggers
         tm = DEFAULT_TRIGGER_MAP
         tm[Gesture.GRAB] = robot.grabbed
-        tm[Gesture.THUMBS_UP] = robot.play
-        tm[Gesture.HORN] = robot.cancel
-        tm[Pose.DOUBLE_TAP] = robot.confirm
+        tm[Gesture.TENNET] = robot.play
+        tm[Gesture.STRETCH_FINGERS] = robot.confirm
+        tm[Pose.DOUBLE_TAP] = robot.cancel
+        tm[Gesture.EXTENSION] = robot.delete
         c.trigger_map = tm
 
         try:

@@ -1,6 +1,6 @@
 from setuptools import setup
 
-package_name = 'xarm_ws'
+package_name = 'xarm_rosws'
 
 setup(
     name=package_name,
@@ -14,11 +14,11 @@ setup(
     zip_safe=True,
     maintainer='Iori Mizutani',
     maintainer_email='iomz@sazanka.io',
-    description='xarm_api with rclpy via websocket',
+    description='xarm_rosws: ros2 xarm_api via websocket',
     license='MIT',
     entry_points={
         'console_scripts': [
-            'run = xarm_ws.server:run',
+            'run = xarm_rosws.server:run',
         ],
     },
 )

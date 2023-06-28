@@ -71,7 +71,7 @@ class GestureClient(MyoClient):
     async def on_classifier_event(self, ce):
         # TODO: do something when the arm is unsynced?
         if ce.t == ClassifierEventType.POSE:
-            # print(ce.pose)
+            # TODO: verify ClassifierEvent triggers
             trigger = self.trigger_map[ce.pose]
             if trigger:
                 try:
@@ -104,6 +104,7 @@ class GestureClient(MyoClient):
         await self.on_emg(fvd.fv)
 
     async def on_gesture(self, gesture: Gesture):
+        # TODO: verify gesture triggers
         # skip if the same gesture
         if self.last_gesture and gesture == self.last_gesture:
             return

@@ -16,9 +16,9 @@ services:
     networks:
       ros:
         ipv4_address: 10.77.77.77
-  xarm-ws:
-    build: ./src/xarm_ws
-    container_name: xarm-ws
+  xarm-rosws:
+    build: ./src/xarm_rosws
+    container_name: xarm-rosws
     depends_on:
       - ros2-xarm
     #profiles:

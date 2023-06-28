@@ -274,8 +274,8 @@ class RobotModel:
         raise NotImplementedError()
 
     async def speak(self, text):
-        """this method needs to be implemented per robot"""
-        raise NotImplementedError()
+        if text != "":
+            await asyncio.create_subprocess_exec("say", text)
 
 
 class AsyncRobot(RobotModel):
@@ -306,10 +306,6 @@ class TalkingRobot(AsyncRobot):
 
     async def move(self):
         await asyncio.sleep(0.5)
-
-    async def speak(self, text):
-        if text != "":
-            await asyncio.create_subprocess_exec("say", text)
 
 
 class Lite6ROSWS(AsyncRobot):
@@ -387,17 +383,10 @@ class Lite6ROSWS(AsyncRobot):
             )
             await websocket.recv()
 
-    async def speak(self, text):
-        if text != "":
-            await asyncio.create_subprocess_exec("say", text)
 
-
-class XArm7(AsyncRobot):
-    def __init__(self, ee=None):
-        self.end_effector = ee
-        if self.end_effector:
-            # self.machine.add_transition("open", ...)
-            pass
+class XArm7ROSWS(AsyncRobot):
+    def __init__(self, ip, port):
+        pass
 
 
 class Gripper(AsyncRobot):
