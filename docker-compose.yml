@@ -12,6 +12,7 @@ services:
     container_name: ros2-xarm
     restart: unless-stopped
     command: ros2 launch xarm_api lite6_driver.launch.py robot_ip:="${ROBOT_IP}"
+    #command: ros2 launch xarm_api xarm7_driver.launch.py robot_ip:="${ROBOT_IP}"
     networks:
       ros:
         ipv4_address: 10.77.77.77

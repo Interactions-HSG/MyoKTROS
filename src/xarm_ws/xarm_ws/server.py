@@ -6,7 +6,9 @@ import logging
 import rclpy
 from websockets.server import serve
 
+from .get_servo_angle import GetServoAngleClient
 from .motion_enable import MotionEnableClient
+from .move_gohome import MoveGohomeClient
 from .set_mode import SetModeClient
 from .set_position import SetPositionClient
 from .set_servo_angle import SetServoAngleClient
@@ -17,12 +19,31 @@ CONNECTIONS = set()
 
 class API:
     @classmethod
+    def get_servo_angle(cls, params={}):
+        c = GetServoAngleClient()
+        response = c.send_request()
+        c.get_logger().info(f"/ufactory/get_servo_angle: {response}")
+        c.destroy_node()
+        return response
+
+    @classmethod
     def motion_enable(cls, params={}):
         id = 8 if "id" not in params else params["id"]
         data = 1 if "data" not in params else params["data"]
         c = MotionEnableClient()
         response = c.send_request(id, data)
         c.get_logger().info(f"/ufactory/motion_enable: {response}")
+        c.destroy_node()
+        return response
+
+    @classmethod
+    def move_gohome(cls, params={}):
+        speed = 0.35 if "speed" not in params else params["speed"]
+        acc = 10.0 if "acc" not in params else params["acc"]
+        mvtime = 0.0 if "mvtime" not in params else params["mvtime"]
+        c = MoveGohomeClient()
+        response = c.send_request(speed, acc, mvtime)
+        c.get_logger().info(f"/ufactory/move_gohome: {response}")
         c.destroy_node()
         return response
 
@@ -80,15 +101,6 @@ async def register(websocket):
     try:
         # Register the client
         CONNECTIONS.add(websocket)
-        # init rclpy
-        rclpy.init()
-        # setup the robot
-        logging.info("enable motion")
-        API.motion_enable()
-        logging.info("set_mode 0")
-        API.set_mode()
-        logging.info("set_state 0")
-        API.set_state()
         # Manage state changes
         async for message in websocket:
             payload = json.loads(message)
@@ -97,14 +109,16 @@ async def register(websocket):
                 call = getattr(API, service)
                 logging.info(f"{service}, {payload}")
                 response = call(payload["params"])
-                await websocket.send(str(response))
+                if service == "get_servo_angle":
+                    # for get_servo_angle, it returns 7 elements instead of 6
+                    await websocket.send(json.dumps({"angles": list(response.datas)[:-1]}))
+                else:
+                    await websocket.send(str(response))
             else:
                 await websocket.send(f"Unsupported payload: {payload}")
                 logging.error(f"Unsupported payload: {payload}")
         await websocket.wait_closed()
     finally:
-        # shutdown rclpy
-        rclpy.shutdown()
         # Unregister the client
         CONNECTIONS.remove(websocket)
 
@@ -128,8 +142,22 @@ async def main():
 
     logging.basicConfig(level=logging.INFO)
     logging.info("starting xarm_ws")
+
+    # init rclpy
+    rclpy.init()
+    # setup the robot
+    logging.info("enable motion")
+    API.motion_enable()
+    logging.info("set_mode 0")
+    API.set_mode()
+    logging.info("set_state 0")
+    API.set_state()
+
     async with serve(register, args.ip, args.port):
         await asyncio.Future()
+
+    # shutdown rclpy
+    rclpy.shutdown()
 
 
 def run():

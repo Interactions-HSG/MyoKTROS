@@ -38,7 +38,7 @@ async def main():
         if service == "quit":
             return
         elif service == "set_mode":
-            payload = json.dumps({"service": service, "params": {"mode": 2}})
+            payload = json.dumps({"service": service, "params": {"data": 2}})
         else:
             payload = json.dumps({"service": service, "params": {}})
 
