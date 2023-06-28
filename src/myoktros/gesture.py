@@ -26,7 +26,10 @@ class Gesture(Enum):
     GRAB = 1
     STRETCH_FINGERS = 2
     EXTENSION = 3
-    TENNET = 4
+    HORN = 4
+    FLEMING = 5
+    # THUMBS_UP
+    # TENNET
 
 
 class GestureModel:
@@ -261,6 +264,7 @@ class KerasSequentialModel(GestureModel):
         # stopping criterion
         early_stopping = tf.keras.callbacks.EarlyStopping(
             monitor='val_loss',
+            min_delta=1e-4,
             patience=10,  # number of epochs with no improvement
         )
         h = model.fit(  # noqa: F841

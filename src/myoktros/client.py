@@ -141,6 +141,7 @@ class RecorderClient(MyoClient):
         self.aggregate_emg = True
         # used by callbacks
         self.buf = []
+        self.gestures = []
 
     async def on_emg_data_aggregated(self, emg):
         line = ",".join(map(str, (time.time(),) + emg))
@@ -151,7 +152,18 @@ class RecorderClient(MyoClient):
         self.buf.append(line)
 
     async def record(self, args: argparse.Namespace):
-        # setup myo
+        self.gestures = [g for g in Gesture]
+        if args.gesture != "all" and args.gesture != "":
+            gn = args.gesture.upper()
+            try:
+                self.gestures = [
+                    Gesture[gn],
+                ]
+            except KeyError:
+                logger.error(f"{gn} is not a valid gesture")
+                exit(1)
+
+            # setup myo
         arm_dominance = args.arm_dominance
         data_path = Path(args.data)
         duration = args.duration
@@ -169,7 +181,7 @@ class RecorderClient(MyoClient):
             out_path.rename(data_path / out_path.name + ".bak")
         out_path.mkdir()
 
-        for gesture in Gesture:
+        for gesture in self.gestures:
             self.buf = []
 
             # start

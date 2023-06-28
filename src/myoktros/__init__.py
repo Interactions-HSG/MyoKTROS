@@ -99,6 +99,13 @@ def entrypoint():  # no cov
         default=1,
     )
     calibrate_mode.add_argument(
+        "-g",
+        "--gesture",
+        help=f"if specified, only record a specific gesture {[g.name for g in Gesture]}",
+        default="all",
+        type=str,
+    )
+    calibrate_mode.add_argument(
         "--k",
         help="k for fitting the knn model",
         type=int,
