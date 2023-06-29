@@ -37,15 +37,40 @@ async def main():
         service = args.service
         if service == "quit":
             return
-        elif service == "set_mode":
-            payload = json.dumps({"service": service, "params": {"data": 2}})
+        elif service == "vacuum_on":
+            payload = json.dumps({"service": "set_vacuum_gripper", "params": {"on": True}})
+            await websocket.send(payload)
+            response = await websocket.recv()
+            print(response)
+        elif service == "vacuum_off":
+            payload = json.dumps({"service": "set_vacuum_gripper", "params": {"on": False}})
+            await websocket.send(payload)
+            response = await websocket.recv()
+            print(response)
+        elif service == "teach_mode":
+            payload = json.dumps({"service": "set_mode", "params": {"data": 2}})
+            await websocket.send(payload)
+            response = await websocket.recv()
+            print(response)
+            payload = json.dumps({"service": "set_state", "params": {"data": 0}})
+            await websocket.send(payload)
+            response = await websocket.recv()
+            print(response)
+        elif service == "lock_mode":
+            payload = json.dumps({"service": "set_mode", "params": {"data": 0}})
+            await websocket.send(payload)
+            response = await websocket.recv()
+            print(response)
+            payload = json.dumps({"service": "set_mode", "params": {"data": 0}})
+            await websocket.send(payload)
+            response = await websocket.recv()
+            print(response)
         else:
             payload = json.dumps({"service": service, "params": {}})
-
-        print(f"<<< {payload}")
-        await websocket.send(payload)
-        response = await websocket.recv()
-        print(response)
+            print(f"<<< {payload}")
+            await websocket.send(payload)
+            response = await websocket.recv()
+            print(response)
 
 
 if __name__ == "__main__":
