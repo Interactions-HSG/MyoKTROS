@@ -6,18 +6,43 @@ import logging
 import rclpy
 from websockets.server import serve
 
+from .clean_gripper_error import CleanGripperErrorClient
+from .close_lite6_gripper import CloseLite6GripperClient
 from .get_servo_angle import GetServoAngleClient
 from .motion_enable import MotionEnableClient
 from .move_gohome import MoveGohomeClient
+from .open_lite6_gripper import OpenLite6GripperClient
+from .set_gripper_enable import SetGripperEnableClient
+from .set_gripper_mode import SetGripperModeClient
+from .set_gripper_position import SetGripperPositionClient
+from .set_gripper_speed import SetGripperSpeedClient
 from .set_mode import SetModeClient
 from .set_position import SetPositionClient
 from .set_servo_angle import SetServoAngleClient
 from .set_state import SetStateClient
+from .set_vacuum_gripper import SetVacuumGripperClient
+from .stop_lite6_gripper import StopLite6GripperClient
 
 CONNECTIONS = set()
 
 
 class API:
+    @classmethod
+    def clean_gripper_error(cls, params={}):
+        c = CleanGripperErrorClient()
+        response = c.send_request()
+        c.get_logger().info(f"xarm_rosws:/ufactory/clean_gripper_error: {response}")
+        c.destroy_node()
+        return response
+
+    @classmethod
+    def close_lite6_gripper(cls, params={}):
+        c = CloseLite6GripperClient()
+        response = c.send_request()
+        c.get_logger().info(f"xarm_rosws:/ufactory/close_lite6_gripper: {response}")
+        c.destroy_node()
+        return response
+
     @classmethod
     def get_servo_angle(cls, params={}):
         c = GetServoAngleClient()
@@ -44,6 +69,52 @@ class API:
         c = MoveGohomeClient()
         response = c.send_request(speed, acc, mvtime)
         c.get_logger().info(f"xarm_rosws:/ufactory/move_gohome: {response}")
+        c.destroy_node()
+        return response
+
+    @classmethod
+    def open_lite6_gripper(cls, params={}):
+        c = OpenLite6GripperClient()
+        response = c.send_request()
+        c.get_logger().info(f"xarm_rosws:/ufactory/open_lite6_gripper: {response}")
+        c.destroy_node()
+        return response
+
+    @classmethod
+    def set_gripper_enable(cls, params={}):
+        data = 0 if "data" not in params else params["data"]
+        c = SetGripperEnableClient()
+        response = c.send_request(data)
+        c.get_logger().info(f"xarm_rosws:/ufactory/set_gripper_enable: {response}")
+        c.destroy_node()
+        return response
+
+    @classmethod
+    def set_gripper_mode(cls, params={}):
+        data = 0 if "data" not in params else params["data"]
+        c = SetGripperModeClient()
+        response = c.send_request(data)
+        c.get_logger().info(f"xarm_rosws:/ufactory/set_gripper_mode: {response}")
+        c.destroy_node()
+        return response
+
+    @classmethod
+    def set_gripper_position(cls, params={}):
+        pos = 0.0 if "pos" not in params else params["pos"]
+        wait = False if "wait" not in params else params["wait"]
+        timeout = 10 if "timeout" not in params else params["timeout"]
+        c = SetGripperPositionClient()
+        response = c.send_request(pos, wait, timeout)
+        c.get_logger().info(f"xarm_rosws:/ufactory/set_gripper_position: {response}")
+        c.destroy_node()
+        return response
+
+    @classmethod
+    def set_gripper_speed(cls, params={}):
+        data = 50.0 if "data" not in params else params["data"]
+        c = SetGripperSpeedClient()
+        response = c.send_request(data)
+        c.get_logger().info(f"xarm_rosws:/ufactory/set_gripper_speed: {response}")
         c.destroy_node()
         return response
 
@@ -88,6 +159,26 @@ class API:
         c = SetStateClient()
         response = c.send_request(data)
         c.get_logger().info(f"xarm_rosws:/ufactory/set_mode: {response}")
+        c.destroy_node()
+        return response
+
+    @classmethod
+    def set_vacuum_gripper(cls, params={}):
+        on = True if "on" not in params else params["on"]
+        wait = False if "wait" not in params else params["wait"]
+        timeout = 3.0 if "timeout" not in params else params["timeout"]
+        delay_sec = 0.0 if "delay_sec" not in params else params["delay_sec"]
+        c = SetVacuumGripperClient()
+        response = c.send_request(on, wait, timeout, delay_sec)
+        c.get_logger().info(f"xarm_rosws:/ufactory/set_vacuum_gripper: {response}")
+        c.destroy_node()
+        return response
+
+    @classmethod
+    def stop_lite6_gripper(cls, params={}):
+        c = StopLite6GripperClient()
+        response = c.send_request()
+        c.get_logger().info(f"xarm_rosws:/ufactory/stop_lite6_gripper: {response}")
         c.destroy_node()
         return response
 

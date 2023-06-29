@@ -28,8 +28,10 @@ class Gesture(Enum):
     EXTENSION = 3
     HORN = 4
     FLEMING = 5
-    # THUMBS_UP
-    # TENNET
+    THUMBS_UP = 6
+    FLEXION = 7
+    SHOOT = 8
+    TENNET = 9
 
 
 class GestureModel:
