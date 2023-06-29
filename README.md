@@ -20,6 +20,17 @@ Myo EMG-based KT system using, but not limited to, ROS.
   - [Visualizing the State Machine](#visualizing-the-state-machine)
     - [WebMachine](#webmachine)
     - [GraphMachine](#graphmachine)
+- [Gestures](#gestures)
+  - [0. REST](#0-rest)
+  - [1. GRAB](#1-grab)
+  - [2. STRETCH_FINGERS](#2-stretch_fingers)
+  - [3. EXTENSION](#3-extension)
+  - [4. HORN](#4-horn)
+  - [5. FLEMING](#5-fleming)
+  - [6. THUMBS_UP](#6-thumbs_up)
+  - [7. FLEXION](#7-flexion)
+  - [8. SHOOT](#8-shoot)
+  - [9. TENNET](#9-tennet)
 - [Myo](#myo)
 - [Authors](#authors)
 
@@ -157,6 +168,53 @@ NOTE: [pygraphviz cannot be installed straight for macOS](https://github.com/pyg
 ```
 
 ![robot_graph_machine](https://github.com/Interactions-HSG/MyoKTROS/assets/26181/50dd10ce-2d8c-464e-89db-3b735cf4a48a)
+
+## Gestures
+
+### 0. REST
+
+<img width="30%" alt="REST-01" src="https://i.imgur.com/VOiCR2l.jpg">
+
+### 1. GRAB
+
+<img width="30%" alt="GRAB-01" src="https://i.imgur.com/N4Wjt7C.jpg">
+<img width="30%" alt="GRAB-02" src="https://i.imgur.com/7yMGchm.jpg">
+
+### 2. STRETCH_FINGERS
+
+<img width="30%" alt="STRETCH_FINGERS-01" src="https://i.imgur.com/kaEhnDJ.jpg">
+<img width="30%" alt="STRETCH_FINGERS-02" src="https://i.imgur.com/OOUIN9O.jpg">
+
+### 3. EXTENSION
+
+<img width="30%" alt="EXTENSION-01" src="https://i.imgur.com/YtN5A5u.jpg">
+
+### 4. HORN
+
+<img width="30%" alt="HORN-01" src="https://i.imgur.com/aFCt5jB.jpg">
+<img width="30%" alt="HORN-02" src="https://i.imgur.com/SJc8kEg.jpg">
+
+### 5. FLEMING
+
+<img width="30%" alt="FLEMING-01" src="https://i.imgur.com/8Nl8DJO.jpg">
+<img width="30%" alt="FLEMING-02" src="https://i.imgur.com/6jTQYQp.jpg">
+
+### 6. THUMBS_UP
+
+<img width="30%" alt="THUMBS_UP-01" src="https://i.imgur.com/MvhaSyZ.jpg">
+
+### 7. FLEXION
+
+<img width="30%" alt="FLEXION-01" src="https://i.imgur.com/ncUiF1V.jpg">
+
+### 8. SHOOT
+
+<img width="30%" alt="SHOOT-01" src="https://i.imgur.com/6xTSv5n.jpg">
+<img width="30%" alt="SHOOT-02" src="https://i.imgur.com/jguueyE.jpg">
+
+### 9. TENNET
+
+<img width="30%" alt="TENNET-01" src="https://i.imgur.com/MNbdTz4.jpg">
 
 ## Myo
 

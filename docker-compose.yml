@@ -21,8 +21,6 @@ services:
     container_name: xarm-rosws
     depends_on:
       - ros2-xarm
-    #profiles:
-    #  - donotstart
     ports:
       - 8765:8765/tcp
     networks:
