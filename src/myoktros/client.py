@@ -79,7 +79,7 @@ class GestureClient(MyoClient):
                 except MachineError:
                     pass
         else:
-            # print(ce.t)
+            # logger.info(ce.t)
             pass
 
     async def on_emg(self, data):
@@ -113,7 +113,7 @@ class GestureClient(MyoClient):
         self.last_gesture = gesture
 
         # invoke the trigger
-        print(gesture)
+        logger.info(gesture)
         trigger = self.trigger_map[gesture]
         if trigger:
             try:
@@ -127,7 +127,7 @@ class GestureClient(MyoClient):
 
     async def on_motion_event(self, me):
         if me.t == MotionEventType.TAP:
-            # print(f"{MotionEventType.TAP}: {me.tap_count} {me.tap_direction}")
+            # logger.info(f"{MotionEventType.TAP}: {me.tap_count} {me.tap_direction}")
             pass
 
     def set_robot(self, robot):
@@ -225,7 +225,7 @@ class EvaluaterClient(GestureClient):
     async def on_gesture(self, g: Gesture):
         if self.last_gesture != g:
             self.last_gesture = g
-            print(g)
+            logger.info(g)
 
     # async def on_emg(self, data):
     #     self.buf.append(data)
@@ -233,23 +233,24 @@ class EvaluaterClient(GestureClient):
 
 async def start_countdown(vibrate, gesture, arm_dominance, emg_mode, duration, action=""):
     # notify the user and start
-    print("")
-    print(f"start {action}")
-    print("")
-    print(gesture.name)
-    print("")
-    print(f"- on the {arm_dominance} arm")
-    print(f"- with {emg_mode.name.lower()}")
-    print(f"- for {duration} seconds")
-    print("")
+    logger.info("")
+    logger.info(f"start {action}")
+    logger.info("")
+    logger.info(gesture.name)
+    logger.info("")
+    logger.info(f"- on the {arm_dominance} arm")
+    logger.info(f"- with {emg_mode.name.lower()}")
+    logger.info(f"- for {duration} seconds")
+    logger.info("")
 
     # count 5
     for i in range(5, 0, -1):
-        print(f"starting in {i}")
+        logger.info(f"starting in {i}")
         await vibrate(VibrationType.SHORT)
         await asyncio.sleep(1)
 
-    print("go!")
+    logger.info("go!")
+    logger.info("")
     await vibrate(VibrationType.MEDIUM)
 
 
@@ -257,6 +258,6 @@ async def wait_countdown(duration, count=5):
     for i in range(duration, 0, -1):
         await asyncio.sleep(1)
         if i % count == 0:
-            print(f"{i} seconds left")
+            logger.info(f"{i} seconds left")
         else:
-            print("|")
+            logger.info("|")
