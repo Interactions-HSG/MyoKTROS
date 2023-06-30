@@ -115,6 +115,8 @@ class Command:  # no cov
                 data_path,
                 emg_mode,
                 args.k,
+                args.knn_algorithm,
+                args.knn_metric,
                 args.n_samples,
             )
 

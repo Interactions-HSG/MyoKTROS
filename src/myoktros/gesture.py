@@ -325,10 +325,21 @@ class KerasSequentialModel(GestureModel):
 
 
 class KNNClassifier(GestureModel):
-    def __init__(self, arm_dominance: str, assets_path: PurePath, emg_mode: EMGMode, n_samples):
+    def __init__(
+        self,
+        arm_dominance: str,
+        assets_path: PurePath,
+        emg_mode: EMGMode,
+        k: int,
+        knn_metric: str,
+        n_samples: int,
+    ):
         super().__init__('knn', arm_dominance, emg_mode, n_samples)
         # check if the model exists
-        model_path = assets_path / f"knn-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"
+        model_path = (
+            assets_path / f"knn-{k}-{knn_metric}-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"
+        )
+
         if not model_path.exists():
             logger.error(f"model: {model_path.absolute()} not found")
             exit(1)
@@ -337,7 +348,15 @@ class KNNClassifier(GestureModel):
 
     @classmethod
     def fit(
-        cls, arm_dominance: str, assets_path: PurePath, data_path: PurePath, emg_mode: EMGMode, k: int, n_samples: int
+        cls,
+        arm_dominance: str,
+        assets_path: PurePath,
+        data_path: PurePath,
+        emg_mode: EMGMode,
+        k: int,
+        knn_algorithm: str,
+        knn_metric: str,
+        n_samples: int,
     ):
         # read the data files
         features = cls.read_data_agg(
@@ -349,11 +368,13 @@ class KNNClassifier(GestureModel):
         labels = features.pop('gesture')
         # features = features.iloc[:, features.columns.get_level_values(1) == 'mean']
 
-        model = KNeighborsClassifier(n_neighbors=k, metric="euclidean")
+        model = KNeighborsClassifier(n_neighbors=k, algorithm=knn_algorithm, metric=knn_metric)
         model.fit(features, np.ravel(labels))
 
         # save the classifier with joblib
-        model_path = assets_path / f"knn-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"
+        model_path = (
+            assets_path / f"knn-{k}-{knn_metric}-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"
+        )
         joblib.dump(model, model_path.absolute(), protocol=2)
         logger.info(f"new model saved at {model_path.absolute()}")
 

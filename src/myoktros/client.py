@@ -48,7 +48,14 @@ class GestureClient(MyoClient):
         if args.model_type == 'keras':
             self.model = KerasSequentialModel(self.arm_dominance, assets_path, self.emg_mode, args.n_samples)
         elif args.model_type == 'knn':
-            self.model = KNNClassifier(self.arm_dominance, assets_path, self.emg_mode, args.n_samples)
+            self.model = KNNClassifier(
+                self.arm_dominance,
+                assets_path,
+                self.emg_mode,
+                args.k,
+                args.knn_metric,
+                args.n_samples,
+            )
         else:
             logger.error(f"invalid model: {args.model_type}")
             exit(1)

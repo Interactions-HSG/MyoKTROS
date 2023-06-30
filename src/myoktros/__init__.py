@@ -46,6 +46,18 @@ def entrypoint():  # no cov
         default=1,
     )
     run_mode.add_argument(
+        "--k",
+        help="k used for fitting the knn model",
+        type=int,
+        default=5,
+    )
+    run_mode.add_argument(
+        "--knn-metric",
+        help="distance metric used for fitting the knn model",
+        choices=['minkowski', 'euclidean', 'manhattan'],
+        default='minkowski',
+    )
+    run_mode.add_argument(
         "--mac",
         help="specify the mac address for Myo",
     )
@@ -111,7 +123,19 @@ def entrypoint():  # no cov
         "--k",
         help="k for fitting the knn model",
         type=int,
-        default=15,
+        default=5,
+    )
+    calibrate_mode.add_argument(
+        "--knn-algorithm",
+        help="algorithm for fitting the knn model",
+        choices=['auto', 'brute', 'ball_tree', 'kd_tree'],
+        default='auto',
+    )
+    calibrate_mode.add_argument(
+        "--knn-metric",
+        help="distance metric for fitting the knn model",
+        choices=['minkowski', 'euclidean', 'manhattan'],
+        default='minkowski',
     )
     calibrate_mode.add_argument(
         "--mac",
@@ -166,6 +190,18 @@ def entrypoint():  # no cov
         (1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified)",
         type=int,
         default=1,
+    )
+    test_mode.add_argument(
+        "--k",
+        help="k used for fitting the knn model",
+        type=int,
+        default=5,
+    )
+    test_mode.add_argument(
+        "--knn-metric",
+        help="distance metric used for fitting the knn model",
+        choices=['minkowski', 'euclidean', 'manhattan'],
+        default='minkowski',
     )
     test_mode.add_argument(
         "--mac",
