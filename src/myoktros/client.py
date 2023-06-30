@@ -12,7 +12,6 @@ from myo.types import (
     EMGMode,
     IMUMode,
     MotionEventType,
-    Pose,
     VibrationType,
 )
 from transitions.core import MachineError
@@ -20,13 +19,6 @@ from transitions.core import MachineError
 from .gesture import Gesture, KerasSequentialModel, KNNClassifier
 
 logger = logging.getLogger(__name__)
-
-
-DEFAULT_TRIGGER_MAP = {}
-for g in Gesture:
-    DEFAULT_TRIGGER_MAP[g] = None
-for p in Pose:
-    DEFAULT_TRIGGER_MAP[p] = None
 
 
 class GestureClient(MyoClient):
@@ -41,13 +33,13 @@ class GestureClient(MyoClient):
         self.model = None
         self.n_samples = None
         self.queue = None
-        self.trigger_map = DEFAULT_TRIGGER_MAP
+        self.trigger_map = {}
 
     async def configure(self, args: argparse.Namespace):
         # set the initial attributes
         self.arm_dominance = args.arm_dominance
         self.emg_mode = EMGMode(args.emg_mode)
-        self.last_gesture = Gesture(0)
+        self.last_gesture = Gesture.Enum(0)
         self.n_samples = args.n_samples
         self.queue = deque([], self.n_samples)
 
@@ -103,7 +95,7 @@ class GestureClient(MyoClient):
     async def on_fv_data(self, fvd):
         await self.on_emg(fvd.fv)
 
-    async def on_gesture(self, gesture: Gesture):
+    async def on_gesture(self, gesture: Gesture.Enum):
         # TODO: verify gesture triggers
         # skip if the same gesture
         if self.last_gesture and gesture == self.last_gesture:
@@ -152,12 +144,12 @@ class RecorderClient(MyoClient):
         self.buf.append(line)
 
     async def record(self, args: argparse.Namespace):
-        self.gestures = [g for g in Gesture]
+        self.gestures = [g for g in Gesture.Enum]
         if args.gesture != "all" and args.gesture != "":
             gn = args.gesture.upper()
             try:
                 self.gestures = [
-                    Gesture[gn],
+                    Gesture.Enum[gn],
                 ]
             except KeyError:
                 logger.error(f"{gn} is not a valid gesture")
@@ -202,7 +194,7 @@ class RecorderClient(MyoClient):
                     print(line, file=f)
             logger.info(f"saved the recorded data to {p.absolute()}")
 
-    def setup_output(self, out_path: PurePath, arm_dominance: str, emg_mode: EMGMode, g: Gesture) -> PurePath:
+    def setup_output(self, out_path: PurePath, arm_dominance: str, emg_mode: EMGMode, g: Gesture.Enum) -> PurePath:
         # build the new data filename
         p = out_path / f"{arm_dominance}-{emg_mode.name.lower()}-{g.name.lower()}.csv"
         with open(p.absolute(), "w") as f:
@@ -220,9 +212,9 @@ class RecorderClient(MyoClient):
 class EvaluaterClient(GestureClient):
     def __init__(self):
         super().__init__()
-        self.last_gesture = Gesture(0)
+        self.last_gesture = Gesture.Enum(0)
 
-    async def on_gesture(self, g: Gesture):
+    async def on_gesture(self, g: Gesture.Enum):
         if self.last_gesture != g:
             self.last_gesture = g
             logger.info(g)

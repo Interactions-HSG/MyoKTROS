@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import argparse
 import asyncio
+import configparser
 import logging
 from pathlib import Path
 
@@ -13,6 +14,14 @@ def entrypoint():  # no cov
     parser = argparse.ArgumentParser(
         description="Myo EMG-based KT system for ROS",
     )
+    parser.add_argument(
+        "-c",
+        "--config",
+        help="path to the config file (config.ini)",
+        type=str,
+        default=(Path.cwd() / "config.ini").absolute(),
+    )
+
     commands = parser.add_subparsers(
         title='commands',
     )
@@ -28,13 +37,6 @@ def entrypoint():  # no cov
         help="left/right arm wearing the Myo",
         choices=['left', 'right'],
         default='right',
-    )
-    run_mode.add_argument(
-        "-c",
-        "--robot-config",
-        help="path config file (config.ini)",
-        type=str,
-        default="config.ini",
     )
     run_mode.add_argument(
         "--emg-mode",
@@ -101,7 +103,7 @@ def entrypoint():  # no cov
     calibrate_mode.add_argument(
         "-g",
         "--gesture",
-        help=f"if specified, only record a specific gesture {[g.name for g in Gesture]}",
+        help="if specified, only record a specific gesture",
         default="all",
         type=str,
     )
@@ -197,6 +199,14 @@ def entrypoint():  # no cov
         format="%(asctime)-15s %(name)-8s %(levelname)s: %(message)s",
     )
     # logging.getLogger("transitions.core").setLevel(logging.ERROR)
+
+    # load the config
+    config_path = Path(args.config)
+    if not config_path.exists():
+        logging.error(f"{config_path.name} doesn't exist")
+        exit(1)
+    # initialize the GestureEnum class
+    Gesture.load_config(config_path)
 
     if hasattr(args, 'command'):
         logging.info("starting MyoKTROS")

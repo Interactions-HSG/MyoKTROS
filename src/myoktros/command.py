@@ -8,7 +8,7 @@ from pathlib import Path
 
 from myo.types import EMGMode, Pose
 
-from .client import EvaluaterClient, GestureClient, RecorderClient, DEFAULT_TRIGGER_MAP
+from .client import EvaluaterClient, GestureClient, RecorderClient
 from .gesture import Gesture, KerasSequentialModel, KNNClassifier
 from .robot import Lite6ROSWS, XArm7ROSWS
 
@@ -28,13 +28,9 @@ class Command:  # no cov
         await c.configure(args)
         await c.start()
 
-        # read robot configuration
-        config_path = Path(args.robot_config)
-        if not config_path.exists():
-            logger.error(f"{config_path.name} doesn't exist")
-            exit(1)
+        # read configuration
         config = configparser.ConfigParser()
-        config.read(config_path)
+        config.read(Path(args.config))
         rc = config['myoktros.robot']
         robot = None
 
@@ -52,13 +48,17 @@ class Command:  # no cov
         await robot.setup()
 
         # register the triggers
+        tm = {}
+        for g in Gesture.Enum:
+            tm[g] = None
+        for p in Pose:
+            tm[p] = None
         tmc = config['myoktros.trigger_map']
-        tm = DEFAULT_TRIGGER_MAP
         try:
-            tm[Gesture[tmc['grabbed']]] = robot.grabbed
-            tm[Gesture[tmc['play']]] = robot.play
-            tm[Gesture[tmc['confirm']]] = robot.confirm
-            tm[Gesture[tmc['delete']]] = robot.delete
+            tm[Gesture.Enum[tmc['grabbed']]] = robot.grabbed
+            tm[Gesture.Enum[tmc['play']]] = robot.play
+            tm[Gesture.Enum[tmc['confirm']]] = robot.confirm
+            tm[Gesture.Enum[tmc['delete']]] = robot.delete
         except KeyError as e:
             logger.error(f"{e} is not a valid gesture")
             exit(1)
@@ -100,13 +100,13 @@ class Command:  # no cov
 
     @classmethod
     async def train(cls, args: argparse.Namespace):
-        assets = Path(__file__).parent.parent.parent / "assets"
+        assets_path = Path(__file__).parent.parent.parent / "assets"
         data_path = Path(args.data)
         emg_mode = EMGMode(args.emg_mode)
         if args.model_type == 'keras':
             KerasSequentialModel.fit(
                 args.arm_dominance,
-                assets,
+                assets_path,
                 data_path,
                 emg_mode,
                 args.n_samples,
@@ -114,7 +114,7 @@ class Command:  # no cov
         elif args.model_type == 'knn':
             KNNClassifier.fit(
                 args.arm_dominance,
-                assets,
+                assets_path,
                 data_path,
                 emg_mode,
                 args.k,
