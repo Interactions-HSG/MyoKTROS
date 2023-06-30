@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
+import configparser
 import logging
 from enum import Enum
-from pathlib import PurePath
+from pathlib import Path, PurePath
 
 import joblib
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from myo.types import EMGMode
+from myo.types import EMGMode, Pose
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import train_test_split
 
@@ -21,21 +22,30 @@ LEARNING_RATE = 1e-3
 N_SENSORS = 8
 
 
-class Gesture(Enum):
-    REST = 0
-    GRAB = 1
-    STRETCH_FINGERS = 2
-    EXTENSION = 3
-    HORN = 4
-    FLEMING = 5
-    THUMBS_UP = 6
-    FLEXION = 7
-    SHOOT = 8
-    TENNET = 9
+class BaseGesture(Enum):
+    def __new__(cls, value):
+        member = object.__new__(cls)
+        member._value_ = value
+        return member
+
+
+class Gesture:
+    __slots__ = ("Enum", "names")
+
+    @classmethod
+    def load_config(cls, p=Path.cwd() / 'config.ini'):
+        config = configparser.ConfigParser()
+        config.read(p)
+        gestures = config['myoktros']['gestures'].strip().split("\n")
+        cls.load_list(gestures)
+
+    @classmethod
+    def load_list(cls, gestures):
+        cls.Enum = BaseGesture('Gesture.Enum', [(g, i) for i, g in enumerate(gestures)])
+        cls.names = [g.name.lower() for g in cls.Enum]
 
 
 class GestureModel:
-    gesture_names = [g.name.lower() for g in Gesture]
     data_columns = [f"data{i}" for i in range(8)]
 
     def __init__(self, name: str, ad: str, em: EMGMode, n_samples: int):
@@ -45,8 +55,17 @@ class GestureModel:
         self.n_samples = n_samples
 
     @classmethod
+    def get_default_trigger_map(cls):
+        tm = {}
+        for g in Gesture.Enum:
+            tm[g] = None
+        for p in Pose:
+            tm[p] = None
+        return tm
+
+    @classmethod
     def read_csv_data(cls, p: PurePath):
-        for g in Gesture:
+        for g in Gesture.Enum:
             if g.name.lower() in p.name:
                 df = pd.read_csv(p)
                 df['gesture'] = g.value
@@ -61,7 +80,7 @@ class GestureModel:
         # read the data files
         data_files = sorted(
             filter(
-                lambda f: any([gnl in f.name for gnl in cls.gesture_names]),
+                lambda f: any([gnl in f.name for gnl in Gesture.names]),
                 session.glob(f"{arm_dominance}-{emg_mode.name.lower()}-*.csv"),
             )
         )
@@ -195,10 +214,10 @@ class GestureModel:
 
 
 class KerasSequentialModel(GestureModel):
-    def __init__(self, arm_dominance: str, assets: PurePath, emg_mode: EMGMode, n_samples: int):
+    def __init__(self, arm_dominance: str, assets_path: PurePath, emg_mode: EMGMode, n_samples: int):
         super().__init__('keras', arm_dominance, emg_mode, n_samples)
         # check if the model exists
-        model_path = assets / f"keras-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model"
+        model_path = assets_path / f"keras-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model"
         if not model_path.exists():
             logger.error(f"model: {model_path.absolute()} not found")
             exit(1)
@@ -209,7 +228,7 @@ class KerasSequentialModel(GestureModel):
         self.model.evaluate(test_features, test_labels)
 
     @classmethod
-    def fit(cls, arm_dominance: str, assets: PurePath, data_path: PurePath, emg_mode: EMGMode, n_samples: int):
+    def fit(cls, arm_dominance: str, assets_path: PurePath, data_path: PurePath, emg_mode: EMGMode, n_samples: int):
         # read the data files
         features = cls.read_data_agg(
             data_path,
@@ -244,7 +263,7 @@ class KerasSequentialModel(GestureModel):
                 # 3rd hidden layer
                 tf.keras.layers.Dense(50, activation="sigmoid"),
                 # output layer, N gestures
-                tf.keras.layers.Dense(len(Gesture), activation="sigmoid", name="prediction"),
+                tf.keras.layers.Dense(len(Gesture.Enum), activation="sigmoid", name="prediction"),
             ]
         )
         model.compile(
@@ -257,7 +276,9 @@ class KerasSequentialModel(GestureModel):
             metrics=["sparse_categorical_accuracy"],
         )
         # save best weights to avoid overfitting
-        weight_path = assets / f"keras-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model" / "weights.h5"
+        weight_path = (
+            assets_path / f"keras-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model" / "weights.h5"
+        )
         model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
             weight_path,
             save_best_only=True,
@@ -288,7 +309,7 @@ class KerasSequentialModel(GestureModel):
         model.evaluate(x_test, y_test)
 
         # save the model
-        model_path = assets / f"keras-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model"
+        model_path = assets_path / f"keras-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model"
         model.save(model_path.absolute())
         logger.info(f"new model saved at {model_path.absolute()}")
 
@@ -300,14 +321,14 @@ class KerasSequentialModel(GestureModel):
         # feat = df.groupby(df.index // self.n_samples, group_keys=True).agg(['mean']).iloc[0].to_numpy()
         feat = df.groupby(df.index // self.n_samples, group_keys=True).agg(['mean', 'std']).iloc[0].to_numpy()
         preds = self.model.predict(feat.reshape(1, -1), verbose=0)
-        return Gesture(np.argmax(preds, axis=1))
+        return Gesture.Enum(np.argmax(preds, axis=1))
 
 
 class KNNClassifier(GestureModel):
-    def __init__(self, arm_dominance: str, assets: PurePath, emg_mode: EMGMode, n_samples):
+    def __init__(self, arm_dominance: str, assets_path: PurePath, emg_mode: EMGMode, n_samples):
         super().__init__('knn', arm_dominance, emg_mode, n_samples)
         # check if the model exists
-        model_path = assets / f"knn-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"
+        model_path = assets_path / f"knn-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"
         if not model_path.exists():
             logger.error(f"model: {model_path.absolute()} not found")
             exit(1)
@@ -315,7 +336,9 @@ class KNNClassifier(GestureModel):
         self.model = joblib.load(model_path.absolute())
 
     @classmethod
-    def fit(cls, arm_dominance: str, assets: PurePath, data_path: PurePath, emg_mode: EMGMode, k: int, n_samples: int):
+    def fit(
+        cls, arm_dominance: str, assets_path: PurePath, data_path: PurePath, emg_mode: EMGMode, k: int, n_samples: int
+    ):
         # read the data files
         features = cls.read_data_agg(
             data_path,
@@ -330,7 +353,7 @@ class KNNClassifier(GestureModel):
         model.fit(features, np.ravel(labels))
 
         # save the classifier with joblib
-        model_path = assets / f"knn-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"
+        model_path = assets_path / f"knn-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"
         joblib.dump(model, model_path.absolute(), protocol=2)
         logger.info(f"new model saved at {model_path.absolute()}")
 
@@ -341,4 +364,4 @@ class KNNClassifier(GestureModel):
         df = pd.DataFrame(queue, columns=self.data_columns)
         feat = df.groupby(df.index // self.n_samples, group_keys=True).agg(['mean', 'std']).iloc[0].to_numpy()
         pred = self.model.predict(feat.reshape(1, -1))[0]
-        return Gesture(pred)
+        return Gesture.Enum(pred)
