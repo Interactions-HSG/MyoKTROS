@@ -16,7 +16,7 @@ from myo.types import (
 )
 from transitions.core import MachineError
 
-from .gesture import Gesture, KerasSequentialModel, KNNClassifier
+from .gesture import Gesture, KerasSequentialModel, KNNClassifier, SVMClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,25 @@ class GestureClient(MyoClient):
         if args.model_type == 'keras':
             self.model = KerasSequentialModel(self.arm_dominance, assets_path, self.emg_mode, args.n_samples)
         elif args.model_type == 'knn':
-            self.model = KNNClassifier(self.arm_dominance, assets_path, self.emg_mode, args.n_samples)
+            self.model = KNNClassifier(
+                self.arm_dominance,
+                assets_path,
+                self.emg_mode,
+                args.knn_k,
+                args.knn_metric,
+                args.n_samples,
+            )
+        elif args.model_type == 'svm':
+            self.model = SVMClassifier(
+                self.arm_dominance,
+                assets_path,
+                self.emg_mode,
+                args.n_samples,
+                args.svm_c,
+                args.svm_degree,
+                args.svm_gamma,
+                args.svm_kernel,
+            )
         else:
             logger.error(f"invalid model: {args.model_type}")
             exit(1)
