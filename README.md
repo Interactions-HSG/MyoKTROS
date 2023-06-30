@@ -12,25 +12,26 @@ Myo EMG-based KT system using, but not limited to, ROS.
 
 - [Installation](#installation)
   - [PIP](#pip)
-  - [Build with Poetry](#build-with-poetry)
+  - [Build and install with Poetry](#build-and-install-with-poetry)
 - [Usage](#usage)
-  - [Connecting MyoKTROS to a robot](#connecting-myoktros-to-a-robot)
-    - [UFACTORY](#ufactory)
-  - [Gesture Model Calibration](#gesture-model-calibration)
-  - [Visualizing the State Machine](#visualizing-the-state-machine)
-    - [WebMachine](#webmachine)
-    - [GraphMachine](#graphmachine)
+- [Configuration](#configuration)
+- [Gesture Model Calibration](#gesture-model-calibration)
+- [Connecting MyoKTROS to a robot](#connecting-myoktros-to-a-robot)
+  - [UFACTORY](#ufactory)
+- [Visualizing the State Machine](#visualizing-the-state-machine)
+  - [WebMachine](#webmachine)
+  - [GraphMachine](#graphmachine)
 - [Gestures](#gestures)
-  - [0. REST](#0-rest)
-  - [1. GRAB](#1-grab)
-  - [2. STRETCH_FINGERS](#2-stretch_fingers)
-  - [3. EXTENSION](#3-extension)
-  - [4. HORN](#4-horn)
-  - [5. FLEMING](#5-fleming)
-  - [6. THUMBS_UP](#6-thumbs_up)
-  - [7. FLEXION](#7-flexion)
-  - [8. SHOOT](#8-shoot)
-  - [9. TENNET](#9-tennet)
+  - [REST](#rest)
+  - [GRAB](#grab)
+  - [STRETCH_FINGERS](#stretch_fingers)
+  - [EXTENSION](#extension)
+  - [FLEXION](#flexion)
+  - [HORN](#horn)
+  - [FLEMING](#fleming)
+  - [THUMBS_UP](#thumbs_up)
+  - [SHOOT](#shoot)
+  - [TENNET](#tennet)
 - [Myo](#myo)
 - [Authors](#authors)
 
@@ -44,59 +45,71 @@ Myo EMG-based KT system using, but not limited to, ROS.
 pip install -U myoktros
 ```
 
-### Build with Poetry
+### Build and install with Poetry
 
 Install [Poetry](https://python-poetry.org/docs/#installation) first.
 
 ```bash
 git clone https://github.com/Interactions-HSG/MyoKTROS.git && cd MyoKTROS
 poetry install
-poetry run myoktros
+poetry build
 ```
 
 ## Usage
 
 ```console
-❯ run myoktros run -h
-usage: myoktros run [-h] [--arm-dominance {left,right}] [--emg-mode EMG_MODE] [--ip IP] [--mac MAC] [--model-type {keras,knn}] [--n-samples N_SAMPLES] [--port PORT]
-                    [-v]
+❯ myoktros -h
+usage: myoktros [-h] [-c CONFIG] {run,calibrate,test} ...
 
-Run MyoKTROS
+Myo EMG-based KT system for ROS
 
 options:
   -h, --help            show this help message and exit
-  --arm-dominance {left,right}
-                        left/right arm wearing the Myo (default: right)
-  --emg-mode EMG_MODE   set the myo.types.EMGMode to use (1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified) (default: 1)
-  --ip IP               IP address for the ROS server (default: 127.0.0.1)
-  --mac MAC             specify the mac address for Myo (default: None)
-  --model-type {keras,knn}
-                        model type to detect the gestures (default: keras)
-  --n-samples N_SAMPLES
-                        number of samples to detect a gesture (default: 50)
-  --port PORT           port for the ROS server (default: 8765)
-  -v, --verbose         sets the log level to debug (default: False)
+  -c CONFIG, --config CONFIG
+                        path to the config file (config.ini)
+
+commands:
+  {run,calibrate,test}
 ```
 
-### Connecting MyoKTROS to a robot
+## Configuration
 
-MyoKTROS currently supports the following robot vendors.
+The `config.ini` should be configured. Find the file in this repository for an actual example.
 
-#### UFACTORY
+MyoKTROS initializes the avaialble gestures by reading this config file.
 
-- [xarm_ros2](https://github.com/xArm-Developer/xarm_ros2/tree/humble)
-- [WebSocket API](https://github.com/xArm-Developer/ufactory_docs/blob/main/websocketapi/websocketapi.md)
+```ini
+[myoktros]
+gestures = # list of gestures
 
-### Gesture Model Calibration
+[myoktros.trigger_map]
+# mapping of the gestures to the `RobotModel` transitions triggers
 
-You need to record EMG data for training a gesture model.
+[myoktros.robot]
+driver = # driver to connect to the robot
 
-The `myoktros calibrate` commands lets you record the EMG data and save them as CSV files, and then train a model (default: `tensorflow.keras.Sequential`).
+[myoktros.robot.xarm_rosws]
+# driver-specific configurations
+```
+
+## Gesture Model Calibration
+
+You need to record EMG data for training a gesture model (`keras`, `knn`, or `svm`).
+
+The `myoktros calibrate` command lets you record the EMG data and save them as CSV files, and then train a model (default: `tensorflow.keras.Sequential`).
+
+There are model-specific parameters prefixed by the `model-type`, and the parameters not meant for the chosen model are ignored.
+
+If the model-specific parameters are configured for training, they also need to be passed to the `myoktros run` and `myoktros test` commands in order to load the trained model.
+
+Otherwise, the model trained by the default parameters is loaded.
 
 ```console
 ❯ myoktros calibrate -h
-usage: myoktros calibrate [-h] [--arm-dominance {left,right}] [--data DATA] [--duration DURATION] [--emg-mode EMG_MODE] [-g GESTURE] [--k K] [--mac MAC]
-                          [--model-type {keras,knn}] [--n-samples N_SAMPLES] [-v] [--only-record | --only-train]
+usage: myoktros calibrate [-h] [--arm-dominance {left,right}] [--data DATA] [--duration DURATION] [--emg-mode EMG_MODE] [-g GESTURE]
+                          [--knn-algorithm {auto,brute,ball_tree,kd_tree}] [--knn-k KNN_K] [--knn-metric {minkowski,euclidean,manhattan}] [--mac MAC]
+                          [--model-type {keras,knn,svm}] [--n-samples N_SAMPLES] [--svm-c SVM_C] [--svm-degree SVM_DEGREE] [--svm-gamma {scale,auto}]
+                          [--svm-kernel {linear,poly,rbf,sigmoid}] [-v] [--only-record | --only-train]
 
 Calibrate the gesture model by recoding the user's EMG
 
@@ -108,25 +121,45 @@ options:
   --duration DURATION   seconds to record each gesture for recoding (default: 30)
   --emg-mode EMG_MODE   set the myo.types.EMGMode to calibrate with (1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified) (default: 1)
   -g GESTURE, --gesture GESTURE
-                        if specified, only record a specific gesture ['REST', 'GRAB', 'STRETCH_FINGERS', 'EXTENSION', 'HORN', 'FLEMING'] (default: all)
-  --k K                 k for fitting the knn model (default: 15)
+                        if specified, only record a specific gesture (default: all)
+  --knn-algorithm {auto,brute,ball_tree,kd_tree}
+                        algorithm for fitting the knn model (default: auto)
+  --knn-k KNN_K         k for fitting the knn model (default: 5)
+  --knn-metric {minkowski,euclidean,manhattan}
+                        distance metric for fitting the knn model (default: minkowski)
   --mac MAC             specify the mac address for Myo (default: None)
-  --model-type {keras,knn}
+  --model-type {keras,knn,svm}
                         model type to calibrate (default: keras)
   --n-samples N_SAMPLES
                         number of samples to detect a gesture (default: 50)
+  --svm-c SVM_C         regularization parameter C for fitting the svm model (must be strictly positive) (default: 1.0)
+  --svm-degree SVM_DEGREE
+                        degree of polynomial function for fitting the svm model with 'poly' kernel (default: 3)
+  --svm-gamma {scale,auto}
+                        kernel coefficient for fitting the svm model (default: scale)
+  --svm-kernel {linear,poly,rbf,sigmoid}
+                        kernel type for fitting the svm model (default: poly)
   -v, --verbose         sets the log level to debug (default: False)
   --only-record         only record EMG data without training a model (default: False)
   --only-train          only train a model without recording EMG data (default: False)
 ```
 
-### Visualizing the State Machine
+## Connecting MyoKTROS to a robot
+
+MyoKTROS currently supports the following robot vendors.
+
+### UFACTORY
+
+- [xarm_ros2](https://github.com/xArm-Developer/xarm_ros2/tree/humble)
+- [WebSocket API](https://github.com/xArm-Developer/ufactory_docs/blob/main/websocketapi/websocketapi.md)
+
+## Visualizing the State Machine
 
 `myoktros.Robot` is the base robot class for Robots to be intereacted with, and a default finite-state machine is implemented with [transitions](https://github.com/pytransitions/transitions).
 
 transitions provides two methods to draw the diagram for the state machines.
 
-#### WebMachine
+### WebMachine
 
 [transitions-gui](https://github.com/pytransitions/transitions-gui) implements `WebMachine` to produce a neat graph as a simple web service.
 
@@ -140,7 +173,7 @@ pip install transitions-gui tornado
 
 ![robot_web_machine](https://github.com/Interactions-HSG/MyoKTROS/assets/26181/bb2a8bbb-04bd-4f59-a98f-70d5b5531392)
 
-#### GraphMachine
+### GraphMachine
 
 The state machine diagram can also be drawn using Graphviz with the [dot layout engine](https://graphviz.org/docs/layouts/dot/) by `scripts/robot_graph_machine.py`.
 
@@ -171,48 +204,50 @@ NOTE: [pygraphviz cannot be installed straight for macOS](https://github.com/pyg
 
 ## Gestures
 
-### 0. REST
+Any gestures can be registered in `config.ini`, but these are some common examples.
+
+### REST
 
 <img width="30%" alt="REST-01" src="https://i.imgur.com/VOiCR2l.jpg">
 
-### 1. GRAB
+### GRAB
 
 <img width="30%" alt="GRAB-01" src="https://i.imgur.com/N4Wjt7C.jpg">
 <img width="30%" alt="GRAB-02" src="https://i.imgur.com/7yMGchm.jpg">
 
-### 2. STRETCH_FINGERS
+### STRETCH_FINGERS
 
 <img width="30%" alt="STRETCH_FINGERS-01" src="https://i.imgur.com/kaEhnDJ.jpg">
 <img width="30%" alt="STRETCH_FINGERS-02" src="https://i.imgur.com/OOUIN9O.jpg">
 
-### 3. EXTENSION
+### EXTENSION
 
 <img width="30%" alt="EXTENSION-01" src="https://i.imgur.com/YtN5A5u.jpg">
 
-### 4. HORN
+### FLEXION
+
+<img width="30%" alt="FLEXION-01" src="https://i.imgur.com/ncUiF1V.jpg">
+
+### HORN
 
 <img width="30%" alt="HORN-01" src="https://i.imgur.com/aFCt5jB.jpg">
 <img width="30%" alt="HORN-02" src="https://i.imgur.com/SJc8kEg.jpg">
 
-### 5. FLEMING
+### FLEMING
 
 <img width="30%" alt="FLEMING-01" src="https://i.imgur.com/8Nl8DJO.jpg">
 <img width="30%" alt="FLEMING-02" src="https://i.imgur.com/6jTQYQp.jpg">
 
-### 6. THUMBS_UP
+### THUMBS_UP
 
 <img width="30%" alt="THUMBS_UP-01" src="https://i.imgur.com/MvhaSyZ.jpg">
 
-### 7. FLEXION
-
-<img width="30%" alt="FLEXION-01" src="https://i.imgur.com/ncUiF1V.jpg">
-
-### 8. SHOOT
+### SHOOT
 
 <img width="30%" alt="SHOOT-01" src="https://i.imgur.com/6xTSv5n.jpg">
 <img width="30%" alt="SHOOT-02" src="https://i.imgur.com/jguueyE.jpg">
 
-### 9. TENNET
+### TENNET
 
 <img width="30%" alt="TENNET-01" src="https://i.imgur.com/MNbdTz4.jpg">
 
