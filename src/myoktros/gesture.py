@@ -37,6 +37,10 @@ class Gesture:
         config = configparser.ConfigParser()
         config.read(p)
         gestures = config['myoktros']['gestures'].strip().split("\n")
+        cls.load_list(gestures)
+
+    @classmethod
+    def load_list(cls, gestures):
         cls.Enum = BaseGesture('Gesture.Enum', [(g, i) for i, g in enumerate(gestures)])
         cls.names = [g.name.lower() for g in cls.Enum]
 
