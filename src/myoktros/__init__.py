@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 
 from .command import Command
-from .gesture import Gesture, GestureModel, KerasSequentialModel, KNNClassifier
+from .gesture import Gesture, GestureModel, KerasSequentialModel, KNNClassifier, SVMClassifier
 
 
 def entrypoint():  # no cov
@@ -46,7 +46,7 @@ def entrypoint():  # no cov
         default=1,
     )
     run_mode.add_argument(
-        "--k",
+        "--knn-k",
         help="k used for fitting the knn model",
         type=int,
         default=5,
@@ -63,7 +63,7 @@ def entrypoint():  # no cov
     )
     run_mode.add_argument(
         "--model-type",
-        choices=['keras', 'knn'],
+        choices=['keras', 'knn', 'svm'],
         default='keras',
         help="model type to detect the gestures",
     )
@@ -72,6 +72,30 @@ def entrypoint():  # no cov
         help="number of samples to detect a gesture",
         type=int,
         default=50,
+    )
+    run_mode.add_argument(
+        "--svm-c",
+        help="regularization parameter C used for fitting the svm model (must be strictly positive)",
+        type=float,
+        default=1.0,
+    )
+    run_mode.add_argument(
+        "--svm-degree",
+        help="degree of polynomial function used for fitting the svm model with 'poly' kernel",
+        type=int,
+        default=3,
+    )
+    run_mode.add_argument(
+        "--svm-gamma",
+        help="kernel coefficient used for fitting the svm model",
+        choices=['scale', 'auto'],
+        default='scale',
+    )
+    run_mode.add_argument(
+        "--svm-kernel",
+        help="kernel type used for fitting the svm model",
+        choices=['linear', 'poly', 'rbf', 'sigmoid'],
+        default='rbf',
     )
     run_mode.add_argument(
         "-v",
@@ -120,16 +144,16 @@ def entrypoint():  # no cov
         type=str,
     )
     calibrate_mode.add_argument(
-        "--k",
-        help="k for fitting the knn model",
-        type=int,
-        default=5,
-    )
-    calibrate_mode.add_argument(
         "--knn-algorithm",
         help="algorithm for fitting the knn model",
         choices=['auto', 'brute', 'ball_tree', 'kd_tree'],
         default='auto',
+    )
+    calibrate_mode.add_argument(
+        "--knn-k",
+        help="k for fitting the knn model",
+        type=int,
+        default=5,
     )
     calibrate_mode.add_argument(
         "--knn-metric",
@@ -144,7 +168,7 @@ def entrypoint():  # no cov
     calibrate_mode.add_argument(
         "--model-type",
         help="model type to calibrate",
-        choices=['keras', 'knn'],
+        choices=['keras', 'knn', 'svm'],
         default='keras',
     )
     calibrate_mode.add_argument(
@@ -152,6 +176,30 @@ def entrypoint():  # no cov
         help="number of samples to detect a gesture",
         type=int,
         default=50,
+    )
+    calibrate_mode.add_argument(
+        "--svm-c",
+        help="regularization parameter C for fitting the svm model (must be strictly positive)",
+        type=float,
+        default=1.0,
+    )
+    calibrate_mode.add_argument(
+        "--svm-degree",
+        help="degree of polynomial function for fitting the svm model with 'poly' kernel",
+        type=int,
+        default=3,
+    )
+    calibrate_mode.add_argument(
+        "--svm-gamma",
+        help="kernel coefficient for fitting the svm model",
+        choices=['scale', 'auto'],
+        default='scale',
+    )
+    calibrate_mode.add_argument(
+        "--svm-kernel",
+        help="kernel type for fitting the svm model",
+        choices=['linear', 'poly', 'rbf', 'sigmoid'],
+        default='poly',
     )
     calibrate_mode.add_argument(
         "-v",
@@ -192,7 +240,7 @@ def entrypoint():  # no cov
         default=1,
     )
     test_mode.add_argument(
-        "--k",
+        "--knn-k",
         help="k used for fitting the knn model",
         type=int,
         default=5,
@@ -210,7 +258,7 @@ def entrypoint():  # no cov
     test_mode.add_argument(
         "--model-type",
         help="model type to test",
-        choices=['keras', 'knn'],
+        choices=['keras', 'knn', 'svm'],
         default='keras',
     )
     test_mode.add_argument(
@@ -218,6 +266,30 @@ def entrypoint():  # no cov
         help="number of samples to detect a gesture",
         type=int,
         default=50,
+    )
+    test_mode.add_argument(
+        "--svm-c",
+        help="regularization parameter C used for fitting the svm model (must be strictly positive)",
+        type=float,
+        default=1.0,
+    )
+    test_mode.add_argument(
+        "--svm-degree",
+        help="degree of polynomial function used for fitting the svm model with 'poly' kernel",
+        type=int,
+        default=3,
+    )
+    test_mode.add_argument(
+        "--svm-gamma",
+        help="kernel coefficient used for fitting the svm model",
+        choices=['scale', 'auto'],
+        default='scale',
+    )
+    test_mode.add_argument(
+        "--svm-kernel",
+        help="kernel type used for fitting the svm model",
+        choices=['linear', 'poly', 'rbf', 'sigmoid'],
+        default='rbf',
     )
     test_mode.add_argument(
         "-v",

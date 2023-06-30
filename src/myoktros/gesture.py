@@ -10,6 +10,9 @@ import pandas as pd
 import tensorflow as tf
 from myo.types import EMGMode, Pose
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 
 logger = logging.getLogger(__name__)
@@ -375,6 +378,103 @@ class KNNClassifier(GestureModel):
         model_path = (
             assets_path / f"knn-{k}-{knn_metric}-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"
         )
+        joblib.dump(model, model_path.absolute(), protocol=2)
+        logger.info(f"new model saved at {model_path.absolute()}")
+
+        return model
+
+    def predict(self, queue: list):
+        # feat = np.array(queue).reshape(1, -1)
+        df = pd.DataFrame(queue, columns=self.data_columns)
+        feat = df.groupby(df.index // self.n_samples, group_keys=True).agg(['mean', 'std']).iloc[0].to_numpy()
+        pred = self.model.predict(feat.reshape(1, -1))[0]
+        return Gesture.Enum(pred)
+
+
+class SVMClassifier(GestureModel):
+    def __init__(
+        self,
+        arm_dominance: str,
+        assets_path: PurePath,
+        emg_mode: EMGMode,
+        n_samples: int,
+        svm_c: float,
+        svm_degree: int,
+        svm_gamma: str,
+        svm_kernel: str,
+    ):
+        super().__init__('svm', arm_dominance, emg_mode, n_samples)
+        # check if the model exists
+        if svm_kernel == 'poly':
+            model_path = (
+                assets_path
+                / f"svm-{svm_c}-{svm_kernel}-{svm_degree}-{svm_gamma}-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"  # noqa: E501
+            )
+        elif svm_kernel == 'linear':
+            model_path = (
+                assets_path
+                / f"svm-{svm_c}-{svm_kernel}-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"  # noqa: E501
+            )
+        else:
+            model_path = (
+                assets_path
+                / f"svm-{svm_c}-{svm_kernel}-{svm_gamma}-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"  # noqa: E501
+            )
+
+        if not model_path.exists():
+            logger.error(f"model: {model_path.absolute()} not found")
+            exit(1)
+
+        self.model = joblib.load(model_path.absolute())
+
+    @classmethod
+    def fit(
+        cls,
+        arm_dominance: str,
+        assets_path: PurePath,
+        data_path: PurePath,
+        emg_mode: EMGMode,
+        n_samples: int,
+        svm_c: float,
+        svm_degree: int,
+        svm_gamma: str,
+        svm_kernel: str,
+    ):
+        # read the data files
+        features = cls.read_data_agg(
+            data_path,
+            arm_dominance,
+            emg_mode,
+            n_samples,
+        )
+        labels = features.pop('gesture')
+        # features = features.iloc[:, features.columns.get_level_values(1) == 'mean']
+
+        if svm_kernel == 'poly':
+            model = make_pipeline(StandardScaler(), SVC(C=svm_c, kernel=svm_kernel, degree=svm_degree, gamma=svm_gamma))
+        elif svm_kernel == 'linear':
+            model = make_pipeline(StandardScaler(), SVC(C=svm_c, kernel=svm_kernel))
+        else:
+            model = make_pipeline(StandardScaler(), SVC(C=svm_c, kernel=svm_kernel, gamma=svm_gamma))
+
+        model.fit(features, np.ravel(labels))
+
+        # save the classifier with joblib
+        if svm_kernel == 'poly':
+            model_path = (
+                assets_path
+                / f"svm-{svm_c}-{svm_kernel}-{svm_degree}-{svm_gamma}-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"  # noqa: E501
+            )
+        elif svm_kernel == 'linear':
+            model_path = (
+                assets_path
+                / f"svm-{svm_c}-{svm_kernel}-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"  # noqa: E501
+            )
+        else:
+            model_path = (
+                assets_path
+                / f"svm-{svm_c}-{svm_kernel}-{svm_gamma}-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"  # noqa: E501
+            )
         joblib.dump(model, model_path.absolute(), protocol=2)
         logger.info(f"new model saved at {model_path.absolute()}")
 

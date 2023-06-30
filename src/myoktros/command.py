@@ -9,7 +9,7 @@ from pathlib import Path
 from myo.types import EMGMode, Pose
 
 from .client import EvaluaterClient, GestureClient, RecorderClient
-from .gesture import Gesture, GestureModel, KerasSequentialModel, KNNClassifier
+from .gesture import Gesture, GestureModel, KerasSequentialModel, KNNClassifier, SVMClassifier
 from .robot import Lite6ROSWS, XArm7ROSWS
 
 logger = logging.getLogger(__name__)
@@ -114,10 +114,22 @@ class Command:  # no cov
                 assets_path,
                 data_path,
                 emg_mode,
-                args.k,
+                args.knn_k,
                 args.knn_algorithm,
                 args.knn_metric,
                 args.n_samples,
+            )
+        elif args.model_type == 'svm':
+            SVMClassifier.fit(
+                args.arm_dominance,
+                assets_path,
+                data_path,
+                emg_mode,
+                args.n_samples,
+                args.svm_c,
+                args.svm_degree,
+                args.svm_gamma,
+                args.svm_kernel,
             )
 
     @classmethod
