@@ -6,7 +6,9 @@
 [![pypi version](https://img.shields.io/pypi/v/myoktros.svg)](https://pypi.python.org/pypi/myoktros)
 [![license](https://img.shields.io/pypi/l/myoktros.svg)](https://pypi.python.org/pypi/myoktros)
 
-Myo EMG-based KT system using, but not limited to, ROS.
+Myo EMG-based KT system with, but not limited to, ROS.
+
+MyoKTROS directly communicates with a Myo Armband via [dl-myo](https://github.com/iomz/dl-myo).
 
 <!-- vim-markdown-toc GFM -->
 
@@ -14,10 +16,12 @@ Myo EMG-based KT system using, but not limited to, ROS.
   - [PIP](#pip)
   - [Build and install with Poetry](#build-and-install-with-poetry)
 - [Usage](#usage)
-- [Configuration](#configuration)
-- [Gesture Model Calibration](#gesture-model-calibration)
-- [Connecting MyoKTROS to a robot](#connecting-myoktros-to-a-robot)
-  - [UFACTORY](#ufactory)
+  - [Configuration](#configuration)
+  - [Gesture Model Calibration](#gesture-model-calibration)
+  - [Connecting MyoKTROS to a robot](#connecting-myoktros-to-a-robot)
+    - [UFACTORY](#ufactory)
+      - [xarm_ros2](#xarm_ros2)
+      - [WebSocket API](#websocket-api)
 - [Visualizing the State Machine](#visualizing-the-state-machine)
   - [WebMachine](#webmachine)
   - [GraphMachine](#graphmachine)
@@ -72,7 +76,7 @@ commands:
   {run,calibrate,test}
 ```
 
-## Configuration
+### Configuration
 
 The `config.ini` should be configured. Find the file in this repository for an actual example.
 
@@ -92,7 +96,7 @@ driver = # driver to connect to the robot
 # driver-specific configurations
 ```
 
-## Gesture Model Calibration
+### Gesture Model Calibration
 
 You need to record EMG data for training a gesture model (`keras`, `knn`, or `svm`).
 
@@ -144,14 +148,60 @@ options:
   --only-train          only train a model without recording EMG data (default: False)
 ```
 
-## Connecting MyoKTROS to a robot
+### Connecting MyoKTROS to a robot
 
-MyoKTROS currently supports the following robot vendors.
+MyoKTROS currently supports the following robots.
 
-### UFACTORY
+#### UFACTORY
 
-- [xarm_ros2](https://github.com/xArm-Developer/xarm_ros2/tree/humble)
-- [WebSocket API](https://github.com/xArm-Developer/ufactory_docs/blob/main/websocketapi/websocketapi.md)
+- xArm series: https://www.ufactory.cc/xarm-collaborative-robot/
+- LITE 6: https://www.ufactory.cc/lite-6-collaborative-robot/
+
+##### xarm_ros2
+
+[xarm_ros2](https://github.com/xArm-Developer/xarm_ros2/tree/humble) includes the ROS2 packages for xArm/Lite6 robot series.
+
+The ROS nodes to communicate with xArm/Lite6 robots can be deployed by the included `docker-compose.yml`.
+MyoKTROS invokes the xarm_api services via internal WebSocket messages whose payloads are analogous to the [SRV files](https://github.com/xArm-Developer/xarm_ros2/tree/humble/xarm_msgs/srv) for the corresponding services.
+
+Note that, the `ros2-xarm` container attempts to connect to the robot accessible at the IP address specified by the environmental variable `ROBOT_IP`.
+
+Depending on the model, you need to modify the launch command. For example:
+
+- for Lite6 robots
+
+```yml
+ros2 launch xarm_api lite6_driver.launch.py robot_ip:="${ROBOT_IP}"
+```
+
+- for xArm7 robots
+
+```yml
+ros2 launch xarm_api xarm7_driver.launch.py robot_ip:="${ROBOT_IP}"
+```
+
+Finally, set `myoktros.robot.driver` to `xarm_rosws` and configure the parameters.
+
+```ini
+[myoktros.robot.xarm_rosws]
+model = lite6 # the robot model
+ip = 127.0.0.1 # the IP address for the ROS service client
+port = 8765 # the port that the ROS service client's websocket interface is listening at
+```
+
+##### WebSocket API
+
+UFACTORY's proprietary WebSocket API: https://github.com/xArm-Developer/ufactory_docs/blob/main/websocketapi/websocketapi.md
+
+With this API driver, MyoKTROS can operate without ROS.
+
+Set `myoktros.robot.driver` to `ufactory_ws` and configure the parameters.
+
+```ini
+[myoktros.robot.ufactory_ws]
+model = lite6 # the robot model
+ip = 10.0.0.6 # the IP address for the robot controller
+```
 
 ## Visualizing the State Machine
 
