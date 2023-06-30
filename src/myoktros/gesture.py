@@ -8,7 +8,7 @@ import joblib
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from myo.types import EMGMode
+from myo.types import EMGMode, Pose
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import train_test_split
 
@@ -49,6 +49,15 @@ class GestureModel:
         self.arm_dominance = ad
         self.emg_mode = em
         self.n_samples = n_samples
+
+    @classmethod
+    def get_default_trigger_map(cls):
+        tm = {}
+        for g in Gesture.Enum:
+            tm[g] = None
+        for p in Pose:
+            tm[p] = None
+        return tm
 
     @classmethod
     def read_csv_data(cls, p: PurePath):

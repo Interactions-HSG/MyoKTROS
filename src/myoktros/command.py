@@ -9,7 +9,7 @@ from pathlib import Path
 from myo.types import EMGMode, Pose
 
 from .client import EvaluaterClient, GestureClient, RecorderClient
-from .gesture import Gesture, KerasSequentialModel, KNNClassifier
+from .gesture import Gesture, GestureModel, KerasSequentialModel, KNNClassifier
 from .robot import Lite6ROSWS, XArm7ROSWS
 
 logger = logging.getLogger(__name__)
@@ -47,12 +47,9 @@ class Command:  # no cov
 
         await robot.setup()
 
+        # TODO: trigger map assignment can be entirely done in the config
         # register the triggers
-        tm = {}
-        for g in Gesture.Enum:
-            tm[g] = None
-        for p in Pose:
-            tm[p] = None
+        tm = GestureModel.get_default_trigger_map()
         tmc = config['myoktros.trigger_map']
         try:
             tm[Gesture.Enum[tmc['grabbed']]] = robot.grabbed
