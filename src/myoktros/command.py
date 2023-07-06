@@ -107,6 +107,7 @@ class Command:  # no cov
                 data_path,
                 emg_mode,
                 args.n_samples,
+                args.user,
             )
         elif args.model_type == 'knn':
             KNNClassifier.fit(
@@ -118,6 +119,7 @@ class Command:  # no cov
                 args.knn_algorithm,
                 args.knn_metric,
                 args.n_samples,
+                args.user,
             )
         elif args.model_type == 'svm':
             SVMClassifier.fit(
@@ -130,10 +132,13 @@ class Command:  # no cov
                 args.svm_degree,
                 args.svm_gamma,
                 args.svm_kernel,
+                args.user,
             )
 
     @classmethod
     async def test(cls, args: argparse.Namespace):
+        if args.model_type != 'keras':
+            await cls.train(args)
         logger.info('looking for a Myo device...')
         ec = None
         while ec is None:

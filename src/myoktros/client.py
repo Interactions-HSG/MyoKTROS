@@ -42,11 +42,12 @@ class GestureClient(MyoClient):
         self.last_gesture = Gesture.Enum(0)
         self.n_samples = args.n_samples
         self.queue = deque([], self.n_samples)
+        self.user = args.user
 
         # load the model
         assets_path = Path(__file__).parent.parent.parent / "assets"
         if args.model_type == 'keras':
-            self.model = KerasSequentialModel(self.arm_dominance, assets_path, self.emg_mode, args.n_samples)
+            self.model = KerasSequentialModel(self.arm_dominance, assets_path, self.emg_mode, args.n_samples, self.user)
         elif args.model_type == 'knn':
             self.model = KNNClassifier(
                 self.arm_dominance,
@@ -55,6 +56,7 @@ class GestureClient(MyoClient):
                 args.knn_k,
                 args.knn_metric,
                 args.n_samples,
+                args.user,
             )
         elif args.model_type == 'svm':
             self.model = SVMClassifier(
@@ -66,6 +68,7 @@ class GestureClient(MyoClient):
                 args.svm_degree,
                 args.svm_gamma,
                 args.svm_kernel,
+                args.user,
             )
         else:
             logger.error(f"invalid model: {args.model_type}")
@@ -82,12 +85,13 @@ class GestureClient(MyoClient):
         # TODO: do something when the arm is unsynced?
         if ce.t == ClassifierEventType.POSE:
             # TODO: verify ClassifierEvent triggers
-            trigger = self.trigger_map[ce.pose]
-            if trigger:
-                try:
-                    await trigger()
-                except MachineError:
-                    pass
+            try:
+                trigger = self.trigger_map[ce.pose]
+                await trigger()
+            except KeyError:
+                return
+            except MachineError:
+                return
         else:
             # logger.info(ce.t)
             pass
@@ -124,12 +128,13 @@ class GestureClient(MyoClient):
 
         # invoke the trigger
         logger.info(gesture)
-        trigger = self.trigger_map[gesture]
-        if trigger:
-            try:
-                await trigger()
-            except MachineError:
-                pass
+        try:
+            trigger = self.trigger_map[gesture]
+            await trigger()
+        except KeyError:
+            return
+        except MachineError:
+            return
 
     async def on_imu_data(self, imu):
         # TODO: something can be done with IMU as well
@@ -179,13 +184,14 @@ class RecorderClient(MyoClient):
         duration = args.duration
         emg_mode = EMGMode(args.emg_mode)
         await self.setup(emg_mode=emg_mode)
+        user = args.user
 
         # prepare the datapath
         if not data_path.exists():
             data_path.mkdir()
 
         # create a new record directory with the current datetime
-        out_path = data_path / time.strftime("%Y%m%d%H%M%S")
+        out_path = data_path / time.strftime("%Y%m%d%H%M%S") + f"-{user}"
         if out_path.exists():
             logger.info(f"{out_path.absolute()} already exists; backing up")
             out_path.rename(data_path / out_path.name + ".bak")
@@ -212,7 +218,14 @@ class RecorderClient(MyoClient):
                     print(line, file=f)
             logger.info(f"saved the recorded data to {p.absolute()}")
 
-    def setup_output(self, out_path: PurePath, arm_dominance: str, emg_mode: EMGMode, g: Gesture.Enum) -> PurePath:
+    def setup_output(
+        self,
+        out_path: PurePath,
+        arm_dominance: str,
+        emg_mode: EMGMode,
+        g: Gesture.Enum,
+        user: str,
+    ) -> PurePath:
         # build the new data filename
         p = out_path / f"{arm_dominance}-{emg_mode.name.lower()}-{g.name.lower()}.csv"
         with open(p.absolute(), "w") as f:

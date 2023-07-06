@@ -98,6 +98,13 @@ def entrypoint():  # no cov
         default='rbf',
     )
     run_mode.add_argument(
+        "-u",
+        "--user",
+        type=str,
+        help="an identifier for the user to select the gesture model (select inter-personal models when empty)",
+        default='',
+    )
+    run_mode.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -202,6 +209,13 @@ def entrypoint():  # no cov
         default='poly',
     )
     calibrate_mode.add_argument(
+        "-u",
+        "--user",
+        type=str,
+        help="an identifier for the user to record",
+        default='',
+    )
+    calibrate_mode.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -223,7 +237,8 @@ def entrypoint():  # no cov
     test_mode = commands.add_parser(
         'test',
         conflict_handler='resolve',
-        description='test the model to detect the gestures without attaching to a robot',
+        description='''test the model to detect the gestures without attaching to a robot
+         - retrain the model if not keras''',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     test_mode.add_argument(
@@ -231,6 +246,12 @@ def entrypoint():  # no cov
         help="left/right arm wearing the Myo",
         choices=['left', 'right'],
         default='right',
+    )
+    test_mode.add_argument(
+        "--data",
+        help="path to the data directory to save recorded data",
+        type=str,
+        default=(Path.cwd() / "data").absolute(),
     )
     test_mode.add_argument(
         "--emg-mode",
@@ -290,6 +311,13 @@ def entrypoint():  # no cov
         help="kernel type used for fitting the svm model",
         choices=['linear', 'poly', 'rbf', 'sigmoid'],
         default='rbf',
+    )
+    test_mode.add_argument(
+        "-u",
+        "--user",
+        type=str,
+        help="an identifier for the user to select the gesture model (select inter-personal models when empty)",
+        default='',
     )
     test_mode.add_argument(
         "-v",
