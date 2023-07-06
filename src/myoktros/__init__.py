@@ -346,6 +346,9 @@ def entrypoint():  # no cov
 
     if hasattr(args, 'command'):
         logging.info("starting MyoKTROS")
-        asyncio.run(args.command(args))
+        try:
+            asyncio.run(args.command(args))
+        except KeyboardInterrupt:
+            pass
     else:
         parser.print_help()
