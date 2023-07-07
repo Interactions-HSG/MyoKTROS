@@ -10,7 +10,7 @@ from myo.types import EMGMode, Pose
 
 from .client import EvaluaterClient, GestureClient, RecorderClient
 from .gesture import Gesture, GestureModel, KerasSequentialModel, KNNClassifier, SVMClassifier
-from .robot import Lite6ROSWS, XArm7ROSWS
+from .robot import Lite6ROSWS, TalkingRobot, XArm7ROSWS
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +36,13 @@ class Command:  # no cov
 
         # initialize the robot
         if rc['driver'] == 'xarm_rosws':
-            rc = rc['myoktros.robot.xarm_rosws']
+            rc = config['myoktros.robot.xarm_rosws']
             if rc['model'] == 'lite6':
                 robot = Lite6ROSWS(rc['ip'], int(rc['port']))
             elif rc['model'] == 'xarm7':
                 robot = XArm7ROSWS(rc['ip'], int(rc['port']))
+        elif rc['driver'] == 'darwin':
+            robot = TalkingRobot()
 
         if robot is None:
             exit(1)
@@ -55,11 +57,14 @@ class Command:  # no cov
             tm[Gesture.Enum[tmc['grabbed']]] = robot.grabbed
             tm[Gesture.Enum[tmc['play']]] = robot.play
             tm[Gesture.Enum[tmc['confirm']]] = robot.confirm
-            tm[Gesture.Enum[tmc['delete']]] = robot.delete
+            # TODO: handle the invalid pointer dereference
+            # tm[Gesture.Enum[tmc['delete']]] = robot.delete
+            # tm[Gesture.Enum[tmc['toggle']]] = robot.toggle
         except KeyError as e:
             logger.error(f"{e} is not a valid gesture")
             exit(1)
 
+        # TODO: configure this through the config
         tm[Pose.DOUBLE_TAP] = robot.cancel
         c.trigger_map = tm
 
@@ -107,6 +112,7 @@ class Command:  # no cov
                 data_path,
                 emg_mode,
                 args.n_samples,
+                args.user,
             )
         elif args.model_type == 'knn':
             KNNClassifier.fit(
@@ -118,6 +124,7 @@ class Command:  # no cov
                 args.knn_algorithm,
                 args.knn_metric,
                 args.n_samples,
+                args.user,
             )
         elif args.model_type == 'svm':
             SVMClassifier.fit(
@@ -130,10 +137,13 @@ class Command:  # no cov
                 args.svm_degree,
                 args.svm_gamma,
                 args.svm_kernel,
+                args.user,
             )
 
     @classmethod
     async def test(cls, args: argparse.Namespace):
+        if args.model_type != 'keras':
+            await cls.train(args)
         logger.info('looking for a Myo device...')
         ec = None
         while ec is None:

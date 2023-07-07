@@ -46,6 +46,13 @@ def entrypoint():  # no cov
         default=1,
     )
     run_mode.add_argument(
+        "-l",
+        "--gesture-queue-length",
+        help="number of consective gestures to be required",
+        type=int,
+        default=3,
+    )
+    run_mode.add_argument(
         "--knn-k",
         help="k used for fitting the knn model",
         type=int,
@@ -64,14 +71,14 @@ def entrypoint():  # no cov
     run_mode.add_argument(
         "--model-type",
         choices=['keras', 'knn', 'svm'],
-        default='keras',
+        default='svm',
         help="model type to detect the gestures",
     )
     run_mode.add_argument(
         "--n-samples",
         help="number of samples to detect a gesture",
         type=int,
-        default=50,
+        default=25,
     )
     run_mode.add_argument(
         "--svm-c",
@@ -96,6 +103,13 @@ def entrypoint():  # no cov
         help="kernel type used for fitting the svm model",
         choices=['linear', 'poly', 'rbf', 'sigmoid'],
         default='rbf',
+    )
+    run_mode.add_argument(
+        "-u",
+        "--user",
+        type=str,
+        help="an identifier for the user to select the gesture model (select inter-personal models when empty)",
+        default='',
     )
     run_mode.add_argument(
         "-v",
@@ -169,13 +183,13 @@ def entrypoint():  # no cov
         "--model-type",
         help="model type to calibrate",
         choices=['keras', 'knn', 'svm'],
-        default='keras',
+        default='svm',
     )
     calibrate_mode.add_argument(
         "--n-samples",
         help="number of samples to detect a gesture",
         type=int,
-        default=50,
+        default=25,
     )
     calibrate_mode.add_argument(
         "--svm-c",
@@ -202,6 +216,13 @@ def entrypoint():  # no cov
         default='poly',
     )
     calibrate_mode.add_argument(
+        "-u",
+        "--user",
+        type=str,
+        help="an identifier for the user to record",
+        default='',
+    )
+    calibrate_mode.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -223,7 +244,8 @@ def entrypoint():  # no cov
     test_mode = commands.add_parser(
         'test',
         conflict_handler='resolve',
-        description='test the model to detect the gestures without attaching to a robot',
+        description='''test the model to detect the gestures without attaching to a robot
+         - retrain the model if not keras''',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     test_mode.add_argument(
@@ -233,11 +255,24 @@ def entrypoint():  # no cov
         default='right',
     )
     test_mode.add_argument(
+        "--data",
+        help="path to the data directory to save recorded data",
+        type=str,
+        default=(Path.cwd() / "data").absolute(),
+    )
+    test_mode.add_argument(
         "--emg-mode",
         help="set the myo.types.EMGMode for testing \
         (1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified)",
         type=int,
         default=1,
+    )
+    test_mode.add_argument(
+        "-l",
+        "--gesture-queue-length",
+        help="number of consective gestures to be required",
+        type=int,
+        default=3,
     )
     test_mode.add_argument(
         "--knn-k",
@@ -259,13 +294,13 @@ def entrypoint():  # no cov
         "--model-type",
         help="model type to test",
         choices=['keras', 'knn', 'svm'],
-        default='keras',
+        default='svm',
     )
     test_mode.add_argument(
         "--n-samples",
         help="number of samples to detect a gesture",
         type=int,
-        default=50,
+        default=25,
     )
     test_mode.add_argument(
         "--svm-c",
@@ -290,6 +325,13 @@ def entrypoint():  # no cov
         help="kernel type used for fitting the svm model",
         choices=['linear', 'poly', 'rbf', 'sigmoid'],
         default='rbf',
+    )
+    test_mode.add_argument(
+        "-u",
+        "--user",
+        type=str,
+        help="an identifier for the user to select the gesture model (select inter-personal models when empty)",
+        default='',
     )
     test_mode.add_argument(
         "-v",
@@ -318,6 +360,9 @@ def entrypoint():  # no cov
 
     if hasattr(args, 'command'):
         logging.info("starting MyoKTROS")
-        asyncio.run(args.command(args))
+        try:
+            asyncio.run(args.command(args))
+        except KeyboardInterrupt:
+            pass
     else:
         parser.print_help()
