@@ -10,7 +10,7 @@ from myo.types import EMGMode, Pose
 
 from .client import EvaluaterClient, GestureClient, RecorderClient
 from .gesture import Gesture, GestureModel, KerasSequentialModel, KNNClassifier, SVMClassifier
-from .robot import Lite6ROSWS, XArm7ROSWS
+from .robot import Lite6ROSWS, TalkingRobot, XArm7ROSWS
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +41,8 @@ class Command:  # no cov
                 robot = Lite6ROSWS(rc['ip'], int(rc['port']))
             elif rc['model'] == 'xarm7':
                 robot = XArm7ROSWS(rc['ip'], int(rc['port']))
+        elif rc['driver'] == 'darwin':
+            robot = TalkingRobot()
 
         if robot is None:
             exit(1)
@@ -56,10 +58,12 @@ class Command:  # no cov
             tm[Gesture.Enum[tmc['play']]] = robot.play
             tm[Gesture.Enum[tmc['confirm']]] = robot.confirm
             tm[Gesture.Enum[tmc['delete']]] = robot.delete
+            # tm[Gesture.Enum[tmc['toggle']]] = robot.toggle
         except KeyError as e:
             logger.error(f"{e} is not a valid gesture")
             exit(1)
 
+        # TODO: configure this through the config
         tm[Pose.DOUBLE_TAP] = robot.cancel
         c.trigger_map = tm
 

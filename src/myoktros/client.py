@@ -30,18 +30,20 @@ class GestureClient(MyoClient):
         self.arm_dominance = None
         self.last_gesture = None
         self.emg_mode = None
+        self.gesture_queue = None
         self.model = None
         self.n_samples = None
-        self.queue = None
+        self.emg_queue = None
         self.trigger_map = {}
 
     async def configure(self, args: argparse.Namespace):
         # set the initial attributes
         self.arm_dominance = args.arm_dominance
         self.emg_mode = EMGMode(args.emg_mode)
+        self.gesture_queue = deque([Gesture.Enum(0)] * args.gesture_queue_length, args.gesture_queue_length)
         self.last_gesture = Gesture.Enum(0)
         self.n_samples = args.n_samples
-        self.queue = deque([], self.n_samples)
+        self.emg_queue = deque([], self.n_samples)
         self.user = args.user
 
         # load the model
@@ -88,28 +90,30 @@ class GestureClient(MyoClient):
             try:
                 trigger = self.trigger_map[ce.pose]
                 await trigger()
-            except KeyError:
+            except KeyError:  # no registration
                 return
-            except MachineError:
+            except MachineError:  # invalid transition
+                return
+            except TypeError:  # None
                 return
         else:
             # logger.info(ce.t)
             pass
 
     async def on_emg(self, data):
-        # wait until the queue to fill up
-        self.queue.append(data)
-        if len(self.queue) < self.n_samples:
+        # wait until the emg_queue to fill up
+        self.emg_queue.append(data)
+        if len(self.emg_queue) < self.n_samples:
             return
 
         # predict the gesture
-        pred = self.model.predict(self.queue)
+        pred = self.model.predict(self.emg_queue)
 
         # invoke the on_gesture
         await self.on_gesture(pred)
 
-        # clear the queue
-        self.queue = deque([], self.n_samples)
+        # clear the emg_queue
+        self.emg_queue = deque([], self.n_samples)
 
     async def on_emg_data_aggregated(self, emg):
         await self.on_emg(emg)
@@ -118,22 +122,29 @@ class GestureClient(MyoClient):
         await self.on_emg(fvd.fv)
 
     async def on_gesture(self, gesture: Gesture.Enum):
-        # TODO: verify gesture triggers
+        # inject g into FIFO
+        self.gesture_queue.append(gesture)
+
+        if not all(g == gesture for g in self.gesture_queue):
+            return
+
         # skip if the same gesture
         if self.last_gesture and gesture == self.last_gesture:
             return
 
-        # save the this gesture
+        # save this gesture
         self.last_gesture = gesture
+        logger.info(gesture)
 
         # invoke the trigger
-        logger.info(gesture)
         try:
             trigger = self.trigger_map[gesture]
             await trigger()
-        except KeyError:
+        except KeyError:  # no registration
             return
-        except MachineError:
+        except MachineError:  # invalid transition
+            return
+        except TypeError:  # None
             return
 
     async def on_imu_data(self, imu):
@@ -191,7 +202,7 @@ class RecorderClient(MyoClient):
             data_path.mkdir()
 
         # create a new record directory with the current datetime
-        out_path = data_path / time.strftime("%Y%m%d%H%M%S") + f"-{user}"
+        out_path = data_path / (time.strftime("%Y%m%d%H%M%S") + f"-{user}")
         if out_path.exists():
             logger.info(f"{out_path.absolute()} already exists; backing up")
             out_path.rename(data_path / out_path.name + ".bak")
@@ -224,7 +235,6 @@ class RecorderClient(MyoClient):
         arm_dominance: str,
         emg_mode: EMGMode,
         g: Gesture.Enum,
-        user: str,
     ) -> PurePath:
         # build the new data filename
         p = out_path / f"{arm_dominance}-{emg_mode.name.lower()}-{g.name.lower()}.csv"
@@ -245,10 +255,23 @@ class EvaluaterClient(GestureClient):
         super().__init__()
         self.last_gesture = Gesture.Enum(0)
 
-    async def on_gesture(self, g: Gesture.Enum):
-        if self.last_gesture != g:
-            self.last_gesture = g
-            logger.info(g)
+    async def on_gesture(self, gesture: Gesture.Enum):
+        # inject g into FIFO
+        self.gesture_queue.append(gesture)
+        logger.info(self.gesture_queue)
+
+        # take the most frequent gestures from the immediate gesture_queue
+        # gesture = max(set(self.gesture_queue), key=self.gesture_queue.count)
+        if not all(g == gesture for g in self.gesture_queue):
+            return
+
+        # skip if the same gesture
+        if self.last_gesture and gesture == self.last_gesture:
+            return
+
+        # save this gesture
+        self.last_gesture = gesture
+        logger.info(gesture)
 
     # async def on_emg(self, data):
     #     self.buf.append(data)

@@ -46,6 +46,12 @@ def entrypoint():  # no cov
         default=1,
     )
     run_mode.add_argument(
+        "--gesture-queue-length",
+        help="number of consective gestures to be required",
+        type=int,
+        default=5,
+    )
+    run_mode.add_argument(
         "--knn-k",
         help="k used for fitting the knn model",
         type=int,
@@ -64,14 +70,14 @@ def entrypoint():  # no cov
     run_mode.add_argument(
         "--model-type",
         choices=['keras', 'knn', 'svm'],
-        default='keras',
+        default='svm',
         help="model type to detect the gestures",
     )
     run_mode.add_argument(
         "--n-samples",
         help="number of samples to detect a gesture",
         type=int,
-        default=50,
+        default=25,
     )
     run_mode.add_argument(
         "--svm-c",
@@ -176,13 +182,13 @@ def entrypoint():  # no cov
         "--model-type",
         help="model type to calibrate",
         choices=['keras', 'knn', 'svm'],
-        default='keras',
+        default='svm',
     )
     calibrate_mode.add_argument(
         "--n-samples",
         help="number of samples to detect a gesture",
         type=int,
-        default=50,
+        default=25,
     )
     calibrate_mode.add_argument(
         "--svm-c",
@@ -261,6 +267,12 @@ def entrypoint():  # no cov
         default=1,
     )
     test_mode.add_argument(
+        "--gesture-queue-length",
+        help="number of consective gestures to be required",
+        type=int,
+        default=5,
+    )
+    test_mode.add_argument(
         "--knn-k",
         help="k used for fitting the knn model",
         type=int,
@@ -280,13 +292,13 @@ def entrypoint():  # no cov
         "--model-type",
         help="model type to test",
         choices=['keras', 'knn', 'svm'],
-        default='keras',
+        default='svm',
     )
     test_mode.add_argument(
         "--n-samples",
         help="number of samples to detect a gesture",
         type=int,
-        default=50,
+        default=25,
     )
     test_mode.add_argument(
         "--svm-c",
