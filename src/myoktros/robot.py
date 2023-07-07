@@ -255,7 +255,7 @@ class RobotModel:
         self.current_step += 1
 
     async def _setup(self):
-        self.__init__()
+        pass
 
     async def disable_free_drive(self):
         """this method needs to be implemented per robot"""

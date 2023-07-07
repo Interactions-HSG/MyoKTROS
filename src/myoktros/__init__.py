@@ -46,10 +46,11 @@ def entrypoint():  # no cov
         default=1,
     )
     run_mode.add_argument(
+        "-l",
         "--gesture-queue-length",
         help="number of consective gestures to be required",
         type=int,
-        default=5,
+        default=3,
     )
     run_mode.add_argument(
         "--knn-k",
@@ -267,10 +268,11 @@ def entrypoint():  # no cov
         default=1,
     )
     test_mode.add_argument(
+        "-l",
         "--gesture-queue-length",
         help="number of consective gestures to be required",
         type=int,
-        default=5,
+        default=3,
     )
     test_mode.add_argument(
         "--knn-k",

@@ -124,6 +124,7 @@ class GestureClient(MyoClient):
     async def on_gesture(self, gesture: Gesture.Enum):
         # inject g into FIFO
         self.gesture_queue.append(gesture)
+        # logger.info(self.gesture_queue)
 
         if not all(g == gesture for g in self.gesture_queue):
             return

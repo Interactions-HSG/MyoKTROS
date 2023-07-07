@@ -36,7 +36,7 @@ class Command:  # no cov
 
         # initialize the robot
         if rc['driver'] == 'xarm_rosws':
-            rc = rc['myoktros.robot.xarm_rosws']
+            rc = config['myoktros.robot.xarm_rosws']
             if rc['model'] == 'lite6':
                 robot = Lite6ROSWS(rc['ip'], int(rc['port']))
             elif rc['model'] == 'xarm7':
@@ -57,7 +57,8 @@ class Command:  # no cov
             tm[Gesture.Enum[tmc['grabbed']]] = robot.grabbed
             tm[Gesture.Enum[tmc['play']]] = robot.play
             tm[Gesture.Enum[tmc['confirm']]] = robot.confirm
-            tm[Gesture.Enum[tmc['delete']]] = robot.delete
+            # TODO: handle the invalid pointer dereference
+            # tm[Gesture.Enum[tmc['delete']]] = robot.delete
             # tm[Gesture.Enum[tmc['toggle']]] = robot.toggle
         except KeyError as e:
             logger.error(f"{e} is not a valid gesture")
