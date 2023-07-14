@@ -51,7 +51,14 @@ class Gesture:
 class GestureModel:
     data_columns = [f"data{i}" for i in range(8)]
 
-    def __init__(self, name: str, ad: str, em: EMGMode, n_samples: int, user: str):
+    def __init__(
+        self,
+        name: str,
+        ad: str,
+        em: EMGMode,
+        n_samples: int,
+        user: str = "",
+    ):
         self.name = name
         self.arm_dominance = ad
         self.emg_mode = em
@@ -180,7 +187,14 @@ class GestureModel:
 
 
 class KerasSequentialModel(GestureModel):
-    def __init__(self, arm_dominance: str, assets_path: PurePath, emg_mode: EMGMode, n_samples: int, user: str):
+    def __init__(
+        self,
+        arm_dominance: str,
+        assets_path: PurePath,
+        emg_mode: EMGMode,
+        n_samples: int,
+        user: str = "",
+    ):
         super().__init__('keras', arm_dominance, emg_mode, n_samples, user)
         # check if the model exists
         model_path = KerasSequentialModel.get_model_path(
@@ -207,7 +221,7 @@ class KerasSequentialModel(GestureModel):
         data_path: PurePath,
         emg_mode: EMGMode,
         n_samples: int,
-        user: str,
+        user: str = "",
     ):
         # read the data files
         features = cls.read_data_agg(
@@ -309,7 +323,7 @@ class KerasSequentialModel(GestureModel):
         assets_path: PurePath,
         emg_mode: EMGMode,
         n_samples: int,
-        user: str,
+        user: str = "",
     ):
         if user != "":
             return assets_path / f"keras-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-{user}-model"
@@ -333,7 +347,7 @@ class KNNClassifier(GestureModel):
         knn_k: int,
         knn_metric: str,
         n_samples: int,
-        user: str,
+        user: str = "",
     ):
         super().__init__('knn', arm_dominance, emg_mode, n_samples, user)
         # check if the model exists
@@ -364,7 +378,7 @@ class KNNClassifier(GestureModel):
         knn_algorithm: str,
         knn_metric: str,
         n_samples: int,
-        user: str,
+        user: str = "",
     ):
         # read the data files
         features = cls.read_data_agg(
@@ -404,7 +418,7 @@ class KNNClassifier(GestureModel):
         knn_k: int,
         knn_metric: str,
         n_samples: int,
-        user: str,
+        user: str = "",
     ):
         if user != "":
             return (
@@ -435,7 +449,7 @@ class SVMClassifier(GestureModel):
         svm_degree: int,
         svm_gamma: str,
         svm_kernel: str,
-        user: str,
+        user: str = "",
     ):
         super().__init__('svm', arm_dominance, emg_mode, n_samples, user)
         # check if the model exists
@@ -468,7 +482,7 @@ class SVMClassifier(GestureModel):
         svm_degree: int,
         svm_gamma: str,
         svm_kernel: str,
-        user: str,
+        user: str = "",
     ):
         # read the data files
         features = cls.read_data_agg(
@@ -518,7 +532,7 @@ class SVMClassifier(GestureModel):
         svm_degree: int,
         svm_gamma: str,
         svm_kernel: str,
-        user: str,
+        user: str = "",
     ):
         if user != "":
             suffix = f"-{user}-model.pkl"
