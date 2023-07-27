@@ -28,9 +28,10 @@ MyoKTROS directly communicates with a Myo Armband via [dl-myo](https://github.co
 - [Gestures](#gestures)
   - [REST](#rest)
   - [GRAB](#grab)
-  - [STRETCH_FINGERS](#stretch_fingers)
+  - [PUSH](#push)
   - [EXTENSION](#extension)
   - [FLEXION](#flexion)
+  - [RAKE](#rake)
   - [HORN](#horn)
   - [FLEMING](#fleming)
   - [THUMBS_UP](#thumbs_up)
@@ -265,10 +266,9 @@ Any gestures can be registered in `config.ini`, but these are some common exampl
 <img width="30%" alt="GRAB-01" src="https://i.imgur.com/N4Wjt7C.jpg">
 <img width="30%" alt="GRAB-02" src="https://i.imgur.com/7yMGchm.jpg">
 
-### STRETCH_FINGERS
+### PUSH
 
-<img width="30%" alt="STRETCH_FINGERS-01" src="https://i.imgur.com/kaEhnDJ.jpg">
-<img width="30%" alt="STRETCH_FINGERS-02" src="https://i.imgur.com/OOUIN9O.jpg">
+<img width="30%" alt="PUSH-01" src="https://i.imgur.com/oDo2RFU.jpg">
 
 ### EXTENSION
 
@@ -277,6 +277,10 @@ Any gestures can be registered in `config.ini`, but these are some common exampl
 ### FLEXION
 
 <img width="30%" alt="FLEXION-01" src="https://i.imgur.com/ncUiF1V.jpg">
+
+### RAKE
+
+<img width="30%" alt="RAKE-01" src="https://i.imgur.com/t92f9Py.jpg">
 
 ### HORN
 
