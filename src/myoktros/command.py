@@ -105,11 +105,13 @@ class Command:  # no cov
 
     @classmethod
     async def train(cls, args: argparse.Namespace):
+        aggregate_all = not args.no_aggregation
         assets_path = Path(__file__).parent.parent.parent / "assets"
         data_path = Path(args.data)
         emg_mode = EMGMode.SEND_FILT
         if args.model_type == 'keras':
             KerasSequentialModel.fit(
+                aggregate_all,
                 args.arm_dominance,
                 assets_path,
                 data_path,
@@ -119,6 +121,7 @@ class Command:  # no cov
             )
         elif args.model_type == 'knn':
             KNNClassifier.fit(
+                aggregate_all,
                 args.arm_dominance,
                 assets_path,
                 data_path,
@@ -131,6 +134,7 @@ class Command:  # no cov
             )
         elif args.model_type == 'svm':
             SVMClassifier.fit(
+                aggregate_all,
                 args.arm_dominance,
                 assets_path,
                 data_path,

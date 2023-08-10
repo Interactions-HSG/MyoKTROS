@@ -39,6 +39,13 @@ def entrypoint():  # no cov
         default='right',
     )
     run_mode.add_argument(
+        "--emg-mode",
+        help="set the myo.types.EMGMode to use \
+        (1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified)",
+        type=int,
+        default=1,
+    )
+    run_mode.add_argument(
         "-l",
         "--gesture-queue-length",
         help="number of consective gestures to be required",
@@ -135,6 +142,13 @@ def entrypoint():  # no cov
         help="seconds to record each gesture for recoding",
         type=int,
         default=30,
+    )
+    calibrate_mode.add_argument(
+        "--emg-mode",
+        help="set the myo.types.EMGMode to calibrate with \
+        (1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified)",
+        type=int,
+        default=1,
     )
     calibrate_mode.add_argument(
         "-g",
@@ -250,6 +264,13 @@ def entrypoint():  # no cov
         help="path to the data directory to save recorded data",
         type=str,
         default=(Path.cwd() / "data").absolute(),
+    )
+    test_mode.add_argument(
+        "--emg-mode",
+        help="set the myo.types.EMGMode for testing \
+        (1: filtered/rectified, 2: filtered/unrectified, 3: unfiltered/unrectified)",
+        type=int,
+        default=1,
     )
     test_mode.add_argument(
         "-l",
