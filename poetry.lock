@@ -565,13 +565,13 @@ async-timeout = {version = ">=3.0.0", markers = "python_version < \"3.11\""}
 
 [[package]]
 name = "dl-myo"
-version = "1.0.5"
+version = "1.1.1"
 description = "Yet another MyoConnect alternative without dongles"
 optional = false
 python-versions = ">=3.8,<4.0"
 files = [
-    {file = "dl_myo-1.0.5-py3-none-any.whl", hash = "sha256:cbb8c7ae54f0c9cdb4a75747eab0e664161638c2367bf0cc629ba147ff0904a8"},
-    {file = "dl_myo-1.0.5.tar.gz", hash = "sha256:e3365bb8f8fd81320092020b5882d2df4190c4eb135ecc1a9fc6210345a68149"},
+    {file = "dl_myo-1.1.1-py3-none-any.whl", hash = "sha256:13ea3ef8e6b9408e1acea58302bf3e660ef10fec88fea7a6c47d6c607cde903e"},
+    {file = "dl_myo-1.1.1.tar.gz", hash = "sha256:b5bb4f1dcb0edebc96fa54948dd23fa55309ac5ac5517e609f4a8920627bd893"},
 ]
 
 [package.dependencies]

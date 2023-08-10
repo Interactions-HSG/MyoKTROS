@@ -93,7 +93,10 @@ class Command:  # no cov
         logger.info('looking for a Myo device...')
         rc = None
         while rc is None:
-            rc = await RecorderClient.with_device(args.mac)
+            if args.no_aggregation:
+                rc = await RecorderClient.with_device(mac=args.mac)
+            else:
+                rc = await RecorderClient.with_device(mac=args.mac, aggregate_all=True)
             if rc is None:
                 logger.info('rescanning for a Myo device...')
 
@@ -104,7 +107,7 @@ class Command:  # no cov
     async def train(cls, args: argparse.Namespace):
         assets_path = Path(__file__).parent.parent.parent / "assets"
         data_path = Path(args.data)
-        emg_mode = EMGMode(args.emg_mode)
+        emg_mode = EMGMode.SEND_FILT
         if args.model_type == 'keras':
             KerasSequentialModel.fit(
                 args.arm_dominance,

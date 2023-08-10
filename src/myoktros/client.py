@@ -5,7 +5,7 @@ import time
 from collections import deque
 from pathlib import Path, PurePath
 
-from myo import MyoClient
+from myo import AggregatedData, MyoClient
 from myo.types import (
     ClassifierEventType,
     ClassifierMode,
@@ -22,14 +22,14 @@ logger = logging.getLogger(__name__)
 
 
 class GestureClient(MyoClient):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, aggregate_all=True, aggregate_emg=True):
+        super().__init__(aggregate_all=True, aggregate_emg=True)
         # always enable EMGData aggregation
         self.aggregate_emg = True
         # the following instance attributes need to be set by configure()
         self.arm_dominance = None
         self.last_gesture = None
-        self.emg_mode = None
+        self.emg_mode = EMGMode.SEND_FILT
         self.gesture_queue = None
         self.model = None
         self.n_samples = None
@@ -39,7 +39,7 @@ class GestureClient(MyoClient):
     async def configure(self, args: argparse.Namespace):
         # set the initial attributes
         self.arm_dominance = args.arm_dominance
-        self.emg_mode = EMGMode(args.emg_mode)
+        self.emg_mode = EMGMode.SEND_FILT
         self.gesture_queue = deque([Gesture.Enum(0)] * args.gesture_queue_length, args.gesture_queue_length)
         self.last_gesture = Gesture.Enum(0)
         self.n_samples = args.n_samples
@@ -162,13 +162,16 @@ class GestureClient(MyoClient):
 
 
 class RecorderClient(MyoClient):
-    def __init__(self):
-        super().__init__()
-        # always enable EMGData aggregation
-        self.aggregate_emg = True
+    def __init__(self, aggregate_all=True, aggregate_emg=True):
+        super().__init__(aggregate_all=aggregate_all, aggregate_emg=aggregate_emg)
         # used by callbacks
         self.buf = []
+        self.imu_buf = []
         self.gestures = []
+
+    async def on_aggregated_data(self, ad: AggregatedData):
+        line = f"{time.time()},{ad}"
+        self.buf.append(line)
 
     async def on_emg_data_aggregated(self, emg):
         line = ",".join(map(str, (time.time(),) + emg))
@@ -190,12 +193,13 @@ class RecorderClient(MyoClient):
                 logger.error(f"{gn} is not a valid gesture")
                 exit(1)
 
-            # setup myo
+        # setup myo
         arm_dominance = args.arm_dominance
         data_path = Path(args.data)
         duration = args.duration
-        emg_mode = EMGMode(args.emg_mode)
-        await self.setup(emg_mode=emg_mode)
+        emg_mode = EMGMode.SEND_FILT
+        # get the emg + IMU data streams (accel, gyro, and orientation)
+        await self.setup(emg_mode=emg_mode, imu_mode=IMUMode.SEND_DATA)
         user = args.user
 
         # prepare the datapath
@@ -211,6 +215,7 @@ class RecorderClient(MyoClient):
 
         for gesture in self.gestures:
             self.buf = []
+            self.imu_buf = []
 
             # start
             # TODO: perhaps wait for the user's DOUBLE_TAP?
@@ -223,14 +228,32 @@ class RecorderClient(MyoClient):
             # stop
             await self.stop()
 
-            # write to file
-            p = self.setup_output(out_path, arm_dominance, emg_mode, gesture)
-            with open(p.absolute(), "a") as f:
-                for line in self.buf:
-                    print(line, file=f)
-            logger.info(f"saved the recorded data to {p.absolute()}")
+            # write emg to file
+            if self.aggregate_all:
+                p = out_path / f"{arm_dominance}-agg-{gesture.name.lower()}.csv"
+                with open(p.absolute(), "w") as f:
+                    print(
+                        "timestamp,fv0,fv1,fv2,fv3,fv4,fv5,fv6,fv7,quat_w,quat_x,quat_y,quat_z,accel_x,accel_y,accel_z,gyro_x,gyro_y,gyro_z",  # noqa: E501
+                        file=f,
+                    )
+                    for line in self.buf:
+                        print(line, file=f)
+                logger.info(f"saved the recorded aggregated data to {p.absolute()}")
+            else:
+                p = self.setup_emg_output(out_path, arm_dominance, emg_mode, gesture)
+                with open(p.absolute(), "a") as f:
+                    for line in self.buf:
+                        print(line, file=f)
+                logger.info(f"saved the recorded emg data to {p.absolute()}")
+                # write imu to file
+                p = out_path / f"{arm_dominance}-imu-{gesture.name.lower()}.csv"
+                with open(p.absolute(), "w") as f:
+                    print("timestamp,w,x,y,z,accel,gyro", file=f)
+                    for line in self.imu_buf:
+                        print(line, file=f)
+                logger.info(f"saved the recorded imu data to {p.absolute()}")
 
-    def setup_output(
+    def setup_emg_output(
         self,
         out_path: PurePath,
         arm_dominance: str,
@@ -252,8 +275,8 @@ class RecorderClient(MyoClient):
 
 
 class EvaluaterClient(GestureClient):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, aggregate_all=True, aggregate_emg=True):
+        super().__init__(aggregate_all=True, aggregate_emg=True)
         self.last_gesture = Gesture.Enum(0)
 
     async def on_gesture(self, gesture: Gesture.Enum):
