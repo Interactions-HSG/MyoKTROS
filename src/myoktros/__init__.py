@@ -221,6 +221,12 @@ def entrypoint():  # no cov
         default='poly',
     )
     calibrate_mode.add_argument(
+        "--test-size",
+        help="test size to evaluate the model",
+        type=float,
+        default=0.25,
+    )
+    calibrate_mode.add_argument(
         "-u",
         "--user",
         type=str,

@@ -13,7 +13,6 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
-from sklearn.model_selection import train_test_split
 
 logger = logging.getLogger(__name__)
 np.set_printoptions(precision=3, suppress=True)
@@ -242,7 +241,7 @@ class GestureModel:
                 lambda x: f"{int(x['gesture']['mean'])}-{session.name}-{int(x['index']['mean'])}", axis=1
             )
             df = df.drop(['index', 'gesture'], axis=1)
-            df['gesture'] = df['id'].apply(lambda x: int(x[0]))
+            df['gesture'] = df['id'].apply(lambda x: int(x.split('-')[0]))
             df = df.set_index('id')
 
             if data is None:
@@ -251,6 +250,10 @@ class GestureModel:
                 data = pd.concat([data, df])
 
         return data
+
+    @classmethod
+    def train_test_split(cls, data: pd.DataFrame, test_size=0.25):
+        pass
 
 
 class KerasSequentialModel(GestureModel):
@@ -285,38 +288,21 @@ class KerasSequentialModel(GestureModel):
     @classmethod
     def fit(
         cls,
+        x_train: pd.DataFrame,
+        x_test: pd.Series,
+        y_train: pd.DataFrame,
+        y_test: pd.Series,
         aggregate_all: bool,
         arm_dominance: str,
         assets_path: PurePath,
-        data_path: PurePath,
         emg_mode: EMGMode,
         n_samples: int,
         user: str = "",
     ):
-        # read the data files
-        features = cls.read_data(
-            data_path,
-            aggregate_all,
-            arm_dominance,
-            emg_mode,
-            n_samples,
-            user,
-        )
-
-        # reserve 10% samples for validation
-        x_val = features.groupby('gesture').apply(lambda x: x.sample(frac=0.1)).reset_index(drop=True)
-
-        # split the data into features and labels
-        labels = features.pop('gesture')
-        y_val = x_val.pop('gesture')
-
-        # strip std
-        # features = features.iloc[:, features.columns.get_level_values(1) == 'mean']
-        # x_val = x_val.iloc[:, x_val.columns.get_level_values(1) == 'mean']
-
-        x_train, x_test, y_train, y_test = train_test_split(features, labels, test_size=0.33, random_state=42)
-
-        shape = features.shape[1]
+        """
+        fit saves the model in assets_path
+        """
+        shape = x_train.shape[1]
         logger.info(f"input_shape: {shape}")
 
         # keras.Sequential
@@ -357,13 +343,13 @@ class KerasSequentialModel(GestureModel):
             patience=10,  # number of epochs with no improvement
         )
         h = model.fit(  # noqa: F841
-            features,
-            labels,
+            x_train,
+            y_train,
             batch_size=BATCH_SIZE,
             callbacks=[early_stopping, model_checkpoint],
             epochs=EPOCHS,
             shuffle=True,
-            validation_data=(x_val, y_val),
+            validation_data=(x_test, y_test),
             validation_split=0.3,
         )
         # logger.info(f"history: {h.history}")
@@ -376,6 +362,7 @@ class KerasSequentialModel(GestureModel):
 
         # save the model
         model_path = KerasSequentialModel.get_model_path(
+            aggregate_all,
             arm_dominance,
             assets_path,
             emg_mode,
@@ -448,10 +435,13 @@ class KNNClassifier(GestureModel):
     @classmethod
     def fit(
         cls,
+        x_train: pd.DataFrame,
+        x_test: pd.Series,
+        y_train: pd.DataFrame,
+        y_test: pd.Series,
         aggregate_all: bool,
         arm_dominance: str,
         assets_path: PurePath,
-        data_path: PurePath,
         emg_mode: EMGMode,
         knn_k: int,
         knn_algorithm: str,
@@ -459,20 +449,11 @@ class KNNClassifier(GestureModel):
         n_samples: int,
         user: str = "",
     ):
-        # read the data files
-        features = cls.read_data(
-            data_path,
-            aggregate_all,
-            arm_dominance,
-            emg_mode,
-            n_samples,
-            user,
-        )
-        labels = features.pop('gesture')
-        # features = features.iloc[:, features.columns.get_level_values(1) == 'mean']
-
+        """
+        fit saves the model in assets_path
+        """
         model = KNeighborsClassifier(n_neighbors=knn_k, algorithm=knn_algorithm, metric=knn_metric)
-        model.fit(features, np.ravel(labels))
+        model.fit(x_train, np.ravel(y_train))
 
         # save the classifier with joblib
         model_path = KNNClassifier.get_model_path(
@@ -558,10 +539,13 @@ class SVMClassifier(GestureModel):
     @classmethod
     def fit(
         cls,
+        x_train: pd.DataFrame,
+        x_test: pd.Series,
+        y_train: pd.DataFrame,
+        y_test: pd.Series,
         aggregate_all: bool,
         arm_dominance: str,
         assets_path: PurePath,
-        data_path: PurePath,
         emg_mode: EMGMode,
         n_samples: int,
         svm_c: float,
@@ -570,18 +554,9 @@ class SVMClassifier(GestureModel):
         svm_kernel: str,
         user: str = "",
     ):
-        # read the data files
-        features = cls.read_data(
-            data_path,
-            aggregate_all,
-            arm_dominance,
-            emg_mode,
-            n_samples,
-            user,
-        )
-        labels = features.pop('gesture')
-        # features = features.iloc[:, features.columns.get_level_values(1) == 'mean']
-
+        """
+        fit saves the model in assets_path
+        """
         if svm_kernel == 'poly':
             model = make_pipeline(StandardScaler(), SVC(C=svm_c, kernel=svm_kernel, degree=svm_degree, gamma=svm_gamma))
         elif svm_kernel == 'linear':
@@ -589,7 +564,7 @@ class SVMClassifier(GestureModel):
         else:
             model = make_pipeline(StandardScaler(), SVC(C=svm_c, kernel=svm_kernel, gamma=svm_gamma))
 
-        model.fit(features, np.ravel(labels))
+        model.fit(x_train, np.ravel(y_train))
 
         # save the classifier with joblib
         model_path = SVMClassifier.get_model_path(
