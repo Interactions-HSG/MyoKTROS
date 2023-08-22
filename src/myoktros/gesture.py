@@ -2,6 +2,7 @@
 import configparser
 import logging
 from enum import Enum
+from time import process_time
 from pathlib import Path, PurePath
 
 import joblib
@@ -13,7 +14,6 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
-from sklearn.model_selection import train_test_split
 
 logger = logging.getLogger(__name__)
 np.set_printoptions(precision=3, suppress=True)
@@ -21,7 +21,7 @@ np.set_printoptions(precision=3, suppress=True)
 
 BATCH_SIZE = 100
 EPOCHS = 1000
-LEARNING_RATE = 1e-3
+LEARNING_RATE = 1e-4
 N_SENSORS = 8
 
 
@@ -49,12 +49,24 @@ class Gesture:
 
 
 class GestureModel:
-    data_columns = [f"data{i}" for i in range(8)]
-
-    def __init__(self, name: str, ad: str, em: EMGMode, n_samples: int, user: str):
+    def __init__(
+        self,
+        name: str,
+        aggregate_all: bool,
+        ad: str,
+        em: EMGMode,
+        n_samples: int,
+        user: str = "",
+    ):
         self.name = name
+        self.aggregate_all = aggregate_all
         self.arm_dominance = ad
-        self.emg_mode = em
+        if self.aggregate_all:  # force SEND_FILT when aggregate_all
+            self.data_columns = [f"data{str(i).zfill(2)}" for i in range(18)]  # 8 + 4 + 3 + 3
+            self.emg_mode = EMGMode.SEND_FILT
+        else:
+            self.data_columns = [f"data{i}" for i in range(8)]
+            self.emg_mode = em
         self.n_samples = n_samples
         self.user = user
 
@@ -77,7 +89,62 @@ class GestureModel:
         return None
 
     @classmethod
-    def read_data(cls, session: PurePath, arm_dominance: str, emg_mode: EMGMode):
+    def read_agg(cls, session: PurePath, arm_dominance: str):
+        """
+        read emg+imu data for a single session
+        """
+        if not session.is_dir():
+            return None
+
+        # read the data files
+        data_files = sorted(
+            filter(
+                lambda f: any([gnl in f.name for gnl in Gesture.names]),
+                session.glob(f"{arm_dominance}-agg-*.csv"),
+            )
+        )
+        if len(data_files) == 0:
+            logger.debug(f"no data files found in {session.absolute()}")
+            return None
+        for f in data_files:
+            logger.debug(f"reading {f.absolute()}")
+
+        # read the recorded data for all the gestures during the session
+        df = pd.concat(map(cls.read_csv_data, data_files), ignore_index=True)
+
+        df = df.rename(
+            columns={
+                'fv0': 'data00',
+                'fv1': 'data01',
+                'fv2': 'data02',
+                'fv3': 'data03',
+                'fv4': 'data04',
+                'fv5': 'data05',
+                'fv6': 'data06',
+                'fv7': 'data07',
+                'quat_w': 'data08',
+                'quat_x': 'data09',
+                'quat_y': 'data10',
+                'quat_z': 'data11',
+                'accel_x': 'data12',
+                'accel_y': 'data13',
+                'accel_z': 'data14',
+                'gyro_x': 'data15',
+                'gyro_y': 'data16',
+                'gyro_z': 'data17',
+            }
+        )
+
+        # drop the timestamp
+        _ = df.pop('timestamp')
+
+        return df
+
+    @classmethod
+    def read_emg(cls, session: PurePath, arm_dominance: str, emg_mode: EMGMode):
+        """
+        read emg data for a single session
+        """
         if not session.is_dir():
             return None
 
@@ -88,6 +155,7 @@ class GestureModel:
                 session.glob(f"{arm_dominance}-{emg_mode.name.lower()}-*.csv"),
             )
         )
+
         if len(data_files) == 0:
             logger.debug(f"no data files found in {session.absolute()}")
             return None
@@ -132,14 +200,18 @@ class GestureModel:
         return df
 
     @classmethod
-    def read_data_agg(
+    def read_data(
         cls,
         data_path: PurePath,
+        aggregate_all: bool,
         arm_dominance: str,
         emg_mode: EMGMode,
         n_samples: int,
         user: str = "",
     ):
+        """
+        aggregate and read all the data
+        """
         data = None
         # split the data per subject by using the suffix
         if user != "":
@@ -147,7 +219,10 @@ class GestureModel:
         else:
             sessions = sorted(data_path.glob('*'))
         for session in sessions:
-            df = cls.read_data(session, arm_dominance, emg_mode)
+            if aggregate_all:
+                df = cls.read_agg(session, arm_dominance)
+            else:
+                df = cls.read_emg(session, arm_dominance, emg_mode)
 
             if df is None:
                 continue
@@ -168,7 +243,7 @@ class GestureModel:
                 lambda x: f"{int(x['gesture']['mean'])}-{session.name}-{int(x['index']['mean'])}", axis=1
             )
             df = df.drop(['index', 'gesture'], axis=1)
-            df['gesture'] = df['id'].apply(lambda x: int(x[0]))
+            df['gesture'] = df['id'].apply(lambda x: int(x.split('-')[0]))
             df = df.set_index('id')
 
             if data is None:
@@ -178,12 +253,25 @@ class GestureModel:
 
         return data
 
+    @classmethod
+    def train_test_split(cls, data: pd.DataFrame, train_size):
+        pass
+
 
 class KerasSequentialModel(GestureModel):
-    def __init__(self, arm_dominance: str, assets_path: PurePath, emg_mode: EMGMode, n_samples: int, user: str):
-        super().__init__('keras', arm_dominance, emg_mode, n_samples, user)
+    def __init__(
+        self,
+        aggregate_all: bool,
+        arm_dominance: str,
+        assets_path: PurePath,
+        emg_mode: EMGMode,
+        n_samples: int,
+        user: str = "",
+    ):
+        super().__init__('keras', aggregate_all, arm_dominance, emg_mode, n_samples, user)
         # check if the model exists
         model_path = KerasSequentialModel.get_model_path(
+            aggregate_all,
             arm_dominance,
             assets_path,
             emg_mode,
@@ -202,47 +290,32 @@ class KerasSequentialModel(GestureModel):
     @classmethod
     def fit(
         cls,
+        x_train: pd.DataFrame,
+        x_test: pd.Series,
+        y_train: pd.DataFrame,
+        y_test: pd.Series,
+        aggregate_all: bool,
         arm_dominance: str,
         assets_path: PurePath,
-        data_path: PurePath,
         emg_mode: EMGMode,
         n_samples: int,
-        user: str,
+        user: str = "",
     ):
-        # read the data files
-        features = cls.read_data_agg(
-            data_path,
-            arm_dominance,
-            emg_mode,
-            n_samples,
-            user,
-        )
-
-        # reserve 10% samples for validation
-        x_val = features.groupby('gesture').apply(lambda x: x.sample(frac=0.1)).reset_index(drop=True)
-
-        # split the data into features and labels
-        labels = features.pop('gesture')
-        y_val = x_val.pop('gesture')
-
-        # strip std
-        # features = features.iloc[:, features.columns.get_level_values(1) == 'mean']
-        # x_val = x_val.iloc[:, x_val.columns.get_level_values(1) == 'mean']
-
-        x_train, x_test, y_train, y_test = train_test_split(features, labels, test_size=0.33, random_state=42)
-
-        shape = features.shape[1]
+        """
+        fit saves the model in assets_path
+        """
+        shape = x_train.shape[1]
         logger.info(f"input_shape: {shape}")
 
         # keras.Sequential
         model = tf.keras.Sequential(
             [
                 # 1st hidden layer
-                tf.keras.layers.Dense(200, activation="sigmoid", input_shape=(shape,)),
+                tf.keras.layers.Dense(64, activation="relu", input_shape=(shape,)),
                 # 2nd hidden layer
-                tf.keras.layers.Dense(100, activation="sigmoid"),
+                tf.keras.layers.Dense(32, activation="relu"),
                 # 3rd hidden layer
-                tf.keras.layers.Dense(50, activation="sigmoid"),
+                tf.keras.layers.Dense(16, activation="relu"),
                 # output layer, N gestures
                 tf.keras.layers.Dense(len(Gesture.Enum), activation="sigmoid", name="prediction"),
             ]
@@ -271,26 +344,26 @@ class KerasSequentialModel(GestureModel):
             min_delta=1e-4,
             patience=10,  # number of epochs with no improvement
         )
+        t = process_time()
         h = model.fit(  # noqa: F841
-            features,
-            labels,
+            x_train,
+            y_train,
             batch_size=BATCH_SIZE,
             callbacks=[early_stopping, model_checkpoint],
             epochs=EPOCHS,
             shuffle=True,
-            validation_data=(x_val, y_val),
-            validation_split=0.3,
+            validation_data=(x_test, y_test),
+            validation_split=0.5,
         )
+        elapsed_time = process_time() - t
         # logger.info(f"history: {h.history}")
 
         # load best weights
         model.load_weights(weight_path)
 
-        # evaluate on the validation sets
-        model.evaluate(x_test, y_test)
-
         # save the model
         model_path = KerasSequentialModel.get_model_path(
+            aggregate_all,
             arm_dominance,
             assets_path,
             emg_mode,
@@ -300,20 +373,25 @@ class KerasSequentialModel(GestureModel):
         model.save(model_path.absolute())
         logger.info(f"new model saved at {model_path.absolute()}")
 
-        return model
+        return model, elapsed_time
 
     @classmethod
     def get_model_path(
         cls,
+        aggregate_all: bool,
         arm_dominance: str,
         assets_path: PurePath,
         emg_mode: EMGMode,
         n_samples: int,
-        user: str,
+        user: str = "",
     ):
+        if aggregate_all:
+            mode = "agg"
+        else:
+            mode = emg_mode.name.lower()
         if user != "":
-            return assets_path / f"keras-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-{user}-model"
-        return assets_path / f"keras-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model"
+            return assets_path / f"keras-{arm_dominance}-{mode}-{n_samples}-samples-{user}-model"
+        return assets_path / f"keras-{arm_dominance}-{mode}-{n_samples}-samples-model"
 
     def predict(self, queue: list):
         # feat = np.array(queue).reshape(1, -1)  # reduce the dimension for the input layer
@@ -327,17 +405,19 @@ class KerasSequentialModel(GestureModel):
 class KNNClassifier(GestureModel):
     def __init__(
         self,
+        aggregate_all: bool,
         arm_dominance: str,
         assets_path: PurePath,
         emg_mode: EMGMode,
         knn_k: int,
         knn_metric: str,
         n_samples: int,
-        user: str,
+        user: str = "",
     ):
-        super().__init__('knn', arm_dominance, emg_mode, n_samples, user)
+        super().__init__('knn', aggregate_all, arm_dominance, emg_mode, n_samples, user)
         # check if the model exists
         model_path = KNNClassifier.get_model_path(
+            aggregate_all,
             arm_dominance,
             assets_path,
             emg_mode,
@@ -356,32 +436,31 @@ class KNNClassifier(GestureModel):
     @classmethod
     def fit(
         cls,
+        x_train: pd.DataFrame,
+        x_test: pd.Series,
+        y_train: pd.DataFrame,
+        y_test: pd.Series,
+        aggregate_all: bool,
         arm_dominance: str,
         assets_path: PurePath,
-        data_path: PurePath,
         emg_mode: EMGMode,
         knn_k: int,
         knn_algorithm: str,
         knn_metric: str,
         n_samples: int,
-        user: str,
+        user: str = "",
     ):
-        # read the data files
-        features = cls.read_data_agg(
-            data_path,
-            arm_dominance,
-            emg_mode,
-            n_samples,
-            user,
-        )
-        labels = features.pop('gesture')
-        # features = features.iloc[:, features.columns.get_level_values(1) == 'mean']
-
+        """
+        fit saves the model in assets_path
+        """
         model = KNeighborsClassifier(n_neighbors=knn_k, algorithm=knn_algorithm, metric=knn_metric)
-        model.fit(features, np.ravel(labels))
+        t = process_time()
+        model.fit(x_train, np.ravel(y_train))
+        elapsed_time = process_time() - t
 
         # save the classifier with joblib
         model_path = KNNClassifier.get_model_path(
+            aggregate_all,
             arm_dominance,
             assets_path,
             emg_mode,
@@ -393,28 +472,30 @@ class KNNClassifier(GestureModel):
         joblib.dump(model, model_path.absolute(), protocol=2)
         logger.info(f"new model saved at {model_path.absolute()}")
 
-        return model
+        return model, elapsed_time
 
     @classmethod
     def get_model_path(
         cls,
+        aggregate_all: bool,
         arm_dominance: str,
         assets_path: PurePath,
         emg_mode: EMGMode,
         knn_k: int,
         knn_metric: str,
         n_samples: int,
-        user: str,
+        user: str = "",
     ):
+        if aggregate_all:
+            mode = "agg"
+        else:
+            mode = emg_mode.name.lower()
         if user != "":
             return (
                 assets_path
-                / f"knn-{knn_k}-{knn_metric}-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-{user}-model.pkl"  # noqa: E501
+                / f"knn-{knn_k}-{knn_metric}-{arm_dominance}-{mode}-{n_samples}-samples-{user}-model.pkl"  # noqa: E501
             )
-        return (
-            assets_path
-            / f"knn-{knn_k}-{knn_metric}-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples-model.pkl"
-        )
+        return assets_path / f"knn-{knn_k}-{knn_metric}-{arm_dominance}-{mode}-{n_samples}-samples-model.pkl"
 
     def predict(self, queue: list):
         # feat = np.array(queue).reshape(1, -1)
@@ -427,6 +508,7 @@ class KNNClassifier(GestureModel):
 class SVMClassifier(GestureModel):
     def __init__(
         self,
+        aggregate_all: bool,
         arm_dominance: str,
         assets_path: PurePath,
         emg_mode: EMGMode,
@@ -435,11 +517,12 @@ class SVMClassifier(GestureModel):
         svm_degree: int,
         svm_gamma: str,
         svm_kernel: str,
-        user: str,
+        user: str = "",
     ):
-        super().__init__('svm', arm_dominance, emg_mode, n_samples, user)
+        super().__init__('svm', aggregate_all, arm_dominance, emg_mode, n_samples, user)
         # check if the model exists
         model_path = SVMClassifier.get_model_path(
+            aggregate_all,
             arm_dominance,
             assets_path,
             emg_mode,
@@ -459,28 +542,24 @@ class SVMClassifier(GestureModel):
     @classmethod
     def fit(
         cls,
+        x_train: pd.DataFrame,
+        x_test: pd.Series,
+        y_train: pd.DataFrame,
+        y_test: pd.Series,
+        aggregate_all: bool,
         arm_dominance: str,
         assets_path: PurePath,
-        data_path: PurePath,
         emg_mode: EMGMode,
         n_samples: int,
         svm_c: float,
         svm_degree: int,
         svm_gamma: str,
         svm_kernel: str,
-        user: str,
+        user: str = "",
     ):
-        # read the data files
-        features = cls.read_data_agg(
-            data_path,
-            arm_dominance,
-            emg_mode,
-            n_samples,
-            user,
-        )
-        labels = features.pop('gesture')
-        # features = features.iloc[:, features.columns.get_level_values(1) == 'mean']
-
+        """
+        fit saves the model in assets_path
+        """
         if svm_kernel == 'poly':
             model = make_pipeline(StandardScaler(), SVC(C=svm_c, kernel=svm_kernel, degree=svm_degree, gamma=svm_gamma))
         elif svm_kernel == 'linear':
@@ -488,10 +567,13 @@ class SVMClassifier(GestureModel):
         else:
             model = make_pipeline(StandardScaler(), SVC(C=svm_c, kernel=svm_kernel, gamma=svm_gamma))
 
-        model.fit(features, np.ravel(labels))
+        t = process_time()
+        model.fit(x_train, np.ravel(y_train))
+        elapsed_time = process_time() - t
 
         # save the classifier with joblib
         model_path = SVMClassifier.get_model_path(
+            aggregate_all,
             arm_dominance,
             assets_path,
             emg_mode,
@@ -505,11 +587,12 @@ class SVMClassifier(GestureModel):
         joblib.dump(model, model_path.absolute(), protocol=2)
         logger.info(f"new model saved at {model_path.absolute()}")
 
-        return model
+        return model, elapsed_time
 
     @classmethod
     def get_model_path(
         cls,
+        aggregate_all: bool,
         arm_dominance: str,
         assets_path: PurePath,
         emg_mode: EMGMode,
@@ -518,25 +601,28 @@ class SVMClassifier(GestureModel):
         svm_degree: int,
         svm_gamma: str,
         svm_kernel: str,
-        user: str,
+        user: str = "",
     ):
+        if aggregate_all:
+            mode = "agg"
+        else:
+            mode = emg_mode.name.lower()
         if user != "":
             suffix = f"-{user}-model.pkl"
         else:
             suffix = "-model.pkl"
         if svm_kernel == 'poly':
             model_path = assets_path / (
-                f"svm-{svm_c}-{svm_kernel}-{svm_degree}-{svm_gamma}-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples"  # noqa: E501
+                f"svm-{svm_c}-{svm_kernel}-{svm_degree}-{svm_gamma}-{arm_dominance}-{mode}-{n_samples}-samples"  # noqa: E501
                 + suffix
             )
         elif svm_kernel == 'linear':
             model_path = assets_path / (
-                f"svm-{svm_c}-{svm_kernel}-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples"  # noqa: E501
-                + suffix
+                f"svm-{svm_c}-{svm_kernel}-{arm_dominance}-{mode}-{n_samples}-samples" + suffix  # noqa: E501
             )
         else:
             model_path = assets_path / (
-                f"svm-{svm_c}-{svm_kernel}-{svm_gamma}-{arm_dominance}-{emg_mode.name.lower()}-{n_samples}-samples"  # noqa: E501
+                f"svm-{svm_c}-{svm_kernel}-{svm_gamma}-{arm_dominance}-{mode}-{n_samples}-samples"  # noqa: E501
                 + suffix
             )
         return model_path

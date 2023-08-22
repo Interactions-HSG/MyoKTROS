@@ -192,6 +192,11 @@ def entrypoint():  # no cov
         default=25,
     )
     calibrate_mode.add_argument(
+        "--aggregate_all",
+        help="aggregate EMG and IMU data",
+        action="store_true",
+    )
+    calibrate_mode.add_argument(
         "--svm-c",
         help="regularization parameter C for fitting the svm model (must be strictly positive)",
         type=float,
@@ -214,6 +219,12 @@ def entrypoint():  # no cov
         help="kernel type for fitting the svm model",
         choices=['linear', 'poly', 'rbf', 'sigmoid'],
         default='poly',
+    )
+    calibrate_mode.add_argument(
+        "--train-size-ratio",
+        help="train size ratio to the test size to evaluate the model",
+        type=float,
+        default=0.25,
     )
     calibrate_mode.add_argument(
         "-u",
@@ -268,11 +279,22 @@ def entrypoint():  # no cov
         default=1,
     )
     test_mode.add_argument(
+        "--aggregate-all",
+        help="aggregate EMG and IMU data",
+        action="store_true",
+    )
+    test_mode.add_argument(
         "-l",
         "--gesture-queue-length",
         help="number of consective gestures to be required",
         type=int,
         default=3,
+    )
+    test_mode.add_argument(
+        "--knn-algorithm",
+        help="algorithm for fitting the knn model",
+        choices=['auto', 'brute', 'ball_tree', 'kd_tree'],
+        default='auto',
     )
     test_mode.add_argument(
         "--knn-k",
@@ -325,6 +347,12 @@ def entrypoint():  # no cov
         help="kernel type used for fitting the svm model",
         choices=['linear', 'poly', 'rbf', 'sigmoid'],
         default='rbf',
+    )
+    test_mode.add_argument(
+        "--train-size-ratio",
+        help="train size ratio to the test size to evaluate the model",
+        type=float,
+        default=0.25,
     )
     test_mode.add_argument(
         "-u",

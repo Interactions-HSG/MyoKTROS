@@ -132,7 +132,9 @@ dmypy.json
 .DS_Store
 *.pkl
 *.csv
+*.tgz
 assets/
+backups/
 data/
 node_modules/
 tests/data/

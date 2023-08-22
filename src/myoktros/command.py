@@ -3,10 +3,9 @@ import asyncio
 import configparser
 import logging
 
-# import tomllib
-from pathlib import Path
-
 from myo.types import EMGMode, Pose
+from pathlib import Path
+from sklearn.model_selection import train_test_split
 
 from .client import EvaluaterClient, GestureClient, RecorderClient
 from .gesture import Gesture, GestureModel, KerasSequentialModel, KNNClassifier, SVMClassifier
@@ -93,7 +92,10 @@ class Command:  # no cov
         logger.info('looking for a Myo device...')
         rc = None
         while rc is None:
-            rc = await RecorderClient.with_device(args.mac)
+            if args.aggregate_all:
+                rc = await RecorderClient.with_device(mac=args.mac, aggregate_all=True)
+            else:
+                rc = await RecorderClient.with_device(mac=args.mac)
             if rc is None:
                 logger.info('rescanning for a Myo device...')
 
@@ -104,21 +106,42 @@ class Command:  # no cov
     async def train(cls, args: argparse.Namespace):
         assets_path = Path(__file__).parent.parent.parent / "assets"
         data_path = Path(args.data)
-        emg_mode = EMGMode(args.emg_mode)
+        emg_mode = EMGMode.SEND_FILT
+
+        # read the data files
+        features = GestureModel.read_data(
+            data_path,
+            args.aggregate_all,
+            args.arm_dominance,
+            emg_mode,
+            args.n_samples,
+            args.user,
+        )
+        labels = features.pop('gesture')
+        x_train, x_test, y_train, y_test = train_test_split(features, labels, train_size=args.train_size_ratio)
+
         if args.model_type == 'keras':
             KerasSequentialModel.fit(
+                x_train,
+                x_test,
+                y_train,
+                y_test,
+                args.aggregate_all,
                 args.arm_dominance,
                 assets_path,
-                data_path,
                 emg_mode,
                 args.n_samples,
                 args.user,
             )
         elif args.model_type == 'knn':
             KNNClassifier.fit(
+                x_train,
+                x_test,
+                y_train,
+                y_test,
+                args.aggregate_all,
                 args.arm_dominance,
                 assets_path,
-                data_path,
                 emg_mode,
                 args.knn_k,
                 args.knn_algorithm,
@@ -128,9 +151,13 @@ class Command:  # no cov
             )
         elif args.model_type == 'svm':
             SVMClassifier.fit(
+                x_train,
+                x_test,
+                y_train,
+                y_test,
+                args.aggregate_all,
                 args.arm_dominance,
                 assets_path,
-                data_path,
                 emg_mode,
                 args.n_samples,
                 args.svm_c,
@@ -147,7 +174,10 @@ class Command:  # no cov
         logger.info('looking for a Myo device...')
         ec = None
         while ec is None:
-            ec = await EvaluaterClient.with_device(args.mac)
+            if args.aggregate_all:
+                ec = await EvaluaterClient.with_device(mac=args.mac, aggregate_all=True)
+            else:
+                ec = await EvaluaterClient.with_device(mac=args.mac)
             if ec is None:
                 logger.info('rescanning for a Myo device...')
 
