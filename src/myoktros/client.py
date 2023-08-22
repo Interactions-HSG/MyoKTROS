@@ -37,6 +37,7 @@ class GestureClient(MyoClient):
     async def configure(self, args: argparse.Namespace):
         # set the initial attributes
         self.aggregate_all = args.aggregate_all
+        print(self.aggregate_all)
         self.arm_dominance = args.arm_dominance
         self.emg_mode = args.emg_mode
         self.gesture_queue = deque([Gesture.Enum(0)] * args.gesture_queue_length, args.gesture_queue_length)
@@ -49,9 +50,17 @@ class GestureClient(MyoClient):
         # load the model
         assets_path = Path(__file__).parent.parent.parent / "assets"
         if args.model_type == 'keras':
-            self.model = KerasSequentialModel(self.arm_dominance, assets_path, self.emg_mode, args.n_samples, self.user)
+            self.model = KerasSequentialModel(
+                self.aggregate_all,
+                self.arm_dominance,
+                assets_path,
+                self.emg_mode,
+                args.n_samples,
+                self.user,
+            )
         elif args.model_type == 'knn':
             self.model = KNNClassifier(
+                self.aggregate_all,
                 self.arm_dominance,
                 assets_path,
                 self.emg_mode,
@@ -62,6 +71,7 @@ class GestureClient(MyoClient):
             )
         elif args.model_type == 'svm':
             self.model = SVMClassifier(
+                self.aggregate_all,
                 self.arm_dominance,
                 assets_path,
                 self.emg_mode,
@@ -219,9 +229,10 @@ class RecorderClient(MyoClient):
                 imu_mode=IMUMode.SEND_DATA,
             )
         else:
+            emg_mode = EMGMode(args.emg_mode)
             await self.setup(
                 classifier_mode=ClassifierMode.ENABLED,  # get ClassifierEvent
-                emg_mode=self.emg_mode,  # configure the EMGMode
+                emg_mode=emg_mode,  # configure the EMGMode
                 imu_mode=IMUMode.SEND_ALL,  # get everything about IMU
             )
 
@@ -316,7 +327,7 @@ class RecorderClient(MyoClient):
 
 class EvaluaterClient(GestureClient):
     def __init__(self, aggregate_all=True, aggregate_emg=True):
-        super().__init__(aggregate_all=True, aggregate_emg=True)
+        super().__init__(aggregate_all=aggregate_all, aggregate_emg=aggregate_emg)
         self.last_gesture = Gesture.Enum(0)
 
     async def on_gesture(self, gesture: Gesture.Enum):

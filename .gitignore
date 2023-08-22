@@ -132,6 +132,7 @@ dmypy.json
 .DS_Store
 *.pkl
 *.csv
+*.tgz
 assets/
 backups/
 data/

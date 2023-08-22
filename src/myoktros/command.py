@@ -92,10 +92,10 @@ class Command:  # no cov
         logger.info('looking for a Myo device...')
         rc = None
         while rc is None:
-            if args.no_aggregation:
-                rc = await RecorderClient.with_device(mac=args.mac)
-            else:
+            if args.aggregate_all:
                 rc = await RecorderClient.with_device(mac=args.mac, aggregate_all=True)
+            else:
+                rc = await RecorderClient.with_device(mac=args.mac)
             if rc is None:
                 logger.info('rescanning for a Myo device...')
 
@@ -104,7 +104,6 @@ class Command:  # no cov
 
     @classmethod
     async def train(cls, args: argparse.Namespace):
-        aggregate_all = not args.no_aggregation
         assets_path = Path(__file__).parent.parent.parent / "assets"
         data_path = Path(args.data)
         emg_mode = EMGMode.SEND_FILT
@@ -112,14 +111,14 @@ class Command:  # no cov
         # read the data files
         features = GestureModel.read_data(
             data_path,
-            aggregate_all,
+            args.aggregate_all,
             args.arm_dominance,
             emg_mode,
             args.n_samples,
             args.user,
         )
         labels = features.pop('gesture')
-        x_train, x_test, y_train, y_test = train_test_split(features, labels, test_size=args.test_size)
+        x_train, x_test, y_train, y_test = train_test_split(features, labels, train_size=args.train_size_ratio)
 
         if args.model_type == 'keras':
             KerasSequentialModel.fit(
@@ -127,7 +126,7 @@ class Command:  # no cov
                 x_test,
                 y_train,
                 y_test,
-                aggregate_all,
+                args.aggregate_all,
                 args.arm_dominance,
                 assets_path,
                 emg_mode,
@@ -140,7 +139,7 @@ class Command:  # no cov
                 x_test,
                 y_train,
                 y_test,
-                aggregate_all,
+                args.aggregate_all,
                 args.arm_dominance,
                 assets_path,
                 emg_mode,
@@ -156,7 +155,7 @@ class Command:  # no cov
                 x_test,
                 y_train,
                 y_test,
-                aggregate_all,
+                args.aggregate_all,
                 args.arm_dominance,
                 assets_path,
                 emg_mode,
@@ -175,7 +174,10 @@ class Command:  # no cov
         logger.info('looking for a Myo device...')
         ec = None
         while ec is None:
-            ec = await EvaluaterClient.with_device(args.mac)
+            if args.aggregate_all:
+                ec = await EvaluaterClient.with_device(mac=args.mac, aggregate_all=True)
+            else:
+                ec = await EvaluaterClient.with_device(mac=args.mac)
             if ec is None:
                 logger.info('rescanning for a Myo device...')
 

@@ -2,6 +2,7 @@
 import configparser
 import logging
 from enum import Enum
+from time import process_time
 from pathlib import Path, PurePath
 
 import joblib
@@ -20,7 +21,7 @@ np.set_printoptions(precision=3, suppress=True)
 
 BATCH_SIZE = 100
 EPOCHS = 1000
-LEARNING_RATE = 1e-3
+LEARNING_RATE = 1e-4
 N_SENSORS = 8
 
 
@@ -154,6 +155,7 @@ class GestureModel:
                 session.glob(f"{arm_dominance}-{emg_mode.name.lower()}-*.csv"),
             )
         )
+
         if len(data_files) == 0:
             logger.debug(f"no data files found in {session.absolute()}")
             return None
@@ -252,7 +254,7 @@ class GestureModel:
         return data
 
     @classmethod
-    def train_test_split(cls, data: pd.DataFrame, test_size=0.25):
+    def train_test_split(cls, data: pd.DataFrame, train_size):
         pass
 
 
@@ -309,11 +311,11 @@ class KerasSequentialModel(GestureModel):
         model = tf.keras.Sequential(
             [
                 # 1st hidden layer
-                tf.keras.layers.Dense(200, activation="sigmoid", input_shape=(shape,)),
+                tf.keras.layers.Dense(64, activation="relu", input_shape=(shape,)),
                 # 2nd hidden layer
-                tf.keras.layers.Dense(100, activation="sigmoid"),
+                tf.keras.layers.Dense(32, activation="relu"),
                 # 3rd hidden layer
-                tf.keras.layers.Dense(50, activation="sigmoid"),
+                tf.keras.layers.Dense(16, activation="relu"),
                 # output layer, N gestures
                 tf.keras.layers.Dense(len(Gesture.Enum), activation="sigmoid", name="prediction"),
             ]
@@ -342,6 +344,7 @@ class KerasSequentialModel(GestureModel):
             min_delta=1e-4,
             patience=10,  # number of epochs with no improvement
         )
+        t = process_time()
         h = model.fit(  # noqa: F841
             x_train,
             y_train,
@@ -350,15 +353,13 @@ class KerasSequentialModel(GestureModel):
             epochs=EPOCHS,
             shuffle=True,
             validation_data=(x_test, y_test),
-            validation_split=0.3,
+            validation_split=0.5,
         )
+        elapsed_time = process_time() - t
         # logger.info(f"history: {h.history}")
 
         # load best weights
         model.load_weights(weight_path)
-
-        # evaluate on the validation sets
-        model.evaluate(x_test, y_test)
 
         # save the model
         model_path = KerasSequentialModel.get_model_path(
@@ -372,7 +373,7 @@ class KerasSequentialModel(GestureModel):
         model.save(model_path.absolute())
         logger.info(f"new model saved at {model_path.absolute()}")
 
-        return model
+        return model, elapsed_time
 
     @classmethod
     def get_model_path(
@@ -453,7 +454,9 @@ class KNNClassifier(GestureModel):
         fit saves the model in assets_path
         """
         model = KNeighborsClassifier(n_neighbors=knn_k, algorithm=knn_algorithm, metric=knn_metric)
+        t = process_time()
         model.fit(x_train, np.ravel(y_train))
+        elapsed_time = process_time() - t
 
         # save the classifier with joblib
         model_path = KNNClassifier.get_model_path(
@@ -469,7 +472,7 @@ class KNNClassifier(GestureModel):
         joblib.dump(model, model_path.absolute(), protocol=2)
         logger.info(f"new model saved at {model_path.absolute()}")
 
-        return model
+        return model, elapsed_time
 
     @classmethod
     def get_model_path(
@@ -564,7 +567,9 @@ class SVMClassifier(GestureModel):
         else:
             model = make_pipeline(StandardScaler(), SVC(C=svm_c, kernel=svm_kernel, gamma=svm_gamma))
 
+        t = process_time()
         model.fit(x_train, np.ravel(y_train))
+        elapsed_time = process_time() - t
 
         # save the classifier with joblib
         model_path = SVMClassifier.get_model_path(
@@ -582,7 +587,7 @@ class SVMClassifier(GestureModel):
         joblib.dump(model, model_path.absolute(), protocol=2)
         logger.info(f"new model saved at {model_path.absolute()}")
 
-        return model
+        return model, elapsed_time
 
     @classmethod
     def get_model_path(
